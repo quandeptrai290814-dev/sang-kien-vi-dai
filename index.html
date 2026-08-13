@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đi dô đi đo, i sô i sô, cù sí</title>
+    <title>CHUYẾN TÀU THANH XUÂN 12A1</title>
     
     <!-- External Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -184,7 +184,8 @@
             theme: { month: "CHỦ ĐIỂM THÁNG", title: "CHUYẾN TÀU THANH XUÂN", bannerUrl: "", bannerColorClass: "from-[#1e1b4b] to-[#312e81]" },
             admin: { name: "Giáo Viên", role: "Giáo viên chủ nhiệm", avatarUrl: "", className: "LỚP 12A1", classAvatarUrl: "" },
             settings: { sidebarPosition: 'left', deductStarsOnRedeem: true },
-            students: [],
+            settingsTab: 'thong-tin',
+            students: [], // Đã thêm khởi tạo mảng học sinh để tránh lỗi
             groups: [
                 { id: "g1", name: "Tổ 1", color: "text-red-500", avatarUrl: "" },
                 { id: "g2", name: "Tổ 2", color: "text-green-500", avatarUrl: "" },
@@ -194,7 +195,18 @@
             rewards: [],
             attendanceRecords: {},
             attendanceTab: 'diem-danh',
-            selectedStudentForPoints: null,
+            
+            // --- Cập nhật State cho form Tích điểm mới ---
+            pointsForm: {
+                actionType: 'add', // 'add' or 'subtract'
+                targetType: 'student', // 'student', 'group', or 'class'
+                selectedTargetId: '', // student id or group name, empty if class
+                pointsVal: 0,
+                category: 'Học tập',
+                reason: '',
+                note: ''
+            },
+            
             selectedStudentForRewards: null,
             editingStudentId: null,
             editingGroupId: null,
@@ -225,7 +237,8 @@
         
         function generateUniqueCode() {
             let code, attempts = 0;
-            do { code = Math.floor(10000 + Math.random() * 90000).toString(); attempts++; } while (state.students.some(s => s.code === code) && attempts < 100);
+            const currentStudents = state.students || [];
+            do { code = Math.floor(10000 + Math.random() * 90000).toString(); attempts++; } while (currentStudents.some(s => s.code === code) && attempts < 100);
             return code;
         }
 
@@ -291,6 +304,7 @@
             if (!state.settings) state.settings = { sidebarPosition: 'left', deductStarsOnRedeem: true };
             if (!state.attendanceRecords) state.attendanceRecords = {};
             if (!state.attendanceTab) state.attendanceTab = 'diem-danh';
+            if (!state.students) state.students = [];
             
             const defaultRewards = [
                 { id: 'r1', name: 'Đổi chỗ ngồi 1 ngày', cost: 10, icon: 'ph-seat', color: 'text-purple-600', bg: 'bg-purple-100', desc: 'Chọn chỗ ngồi yêu thích' },
@@ -307,11 +321,120 @@
             });
 
             const defaultCriteria = {
-                version: 2,
-                positive: [{ points: 5, reason: "Phát biểu xây dựng bài" }, { points: 5, reason: "Giúp đỡ bạn bè" }, { points: 10, reason: "Làm bài tập đầy đủ" }, { points: 10, reason: "Phong trào tích cực" }, { points: 15, reason: "Điểm cao trong bài kiểm tra" }, { points: 20, reason: "Đột phá tuần" }],
-                negative: [{ points: -5, reason: "Nói chuyện riêng" }, { points: -10, reason: "Không làm bài tập" }, { points: -5, reason: "Quên đồ dùng học tập" }, { points: -5, reason: "Ăn vặt trong lớp" }, { points: -5, reason: "Đi học muộn" }]
+                version: 3,
+                positive: [
+                    // 🟢 PHONG TRÀO - TẬP THỂ
+                    { points: 20, reason: "Tham gia 1 phong trào do trường phát động", category: "Phong trào" },
+                    { points: 5, reason: "Tham gia cổ vũ phong trào", category: "Phong trào" },
+                    { points: 30, reason: "Sinh hoạt tập thể đoạt giải 1", category: "Phong trào" },
+                    { points: 25, reason: "Sinh hoạt tập thể đoạt giải 2", category: "Phong trào" },
+                    { points: 20, reason: "Sinh hoạt tập thể đoạt giải 3", category: "Phong trào" },
+                    { points: 15, reason: "Sinh hoạt tập thể đoạt giải KK", category: "Phong trào" },
+
+                    // 🟢 HỌC TẬP
+                    { points: 10, reason: "Điểm miệng: 10", category: "Học tập" },
+                    { points: 8, reason: "Điểm miệng: 9", category: "Học tập" },
+                    { points: 7, reason: "Điểm miệng: 8", category: "Học tập" },
+                    { points: 5, reason: "Điểm miệng: 7", category: "Học tập" },
+                    { points: 3, reason: "Điểm cộng", category: "Học tập" },
+
+                    // 🟢 THÀNH TÍCH
+                    { points: 40, reason: "Thi HSG đạt giải 1", category: "Thành tích" },
+                    { points: 30, reason: "Thi HSG đạt giải 2", category: "Thành tích" },
+                    { points: 25, reason: "Thi HSG đạt giải 3", category: "Thành tích" },
+                    { points: 10, reason: "Thi HSG đạt giải KK", category: "Thành tích" },
+
+                    // 🟢 Ý THỨC - TRÁCH NHIỆM
+                    { points: 10, reason: "Học sinh trung thực tố cáo những hành vi sai trái của học sinh trong lớp", category: "Ý thức" },
+                    { points: 15, reason: "Tham gia công tác xã hội và công tác khác được nhà trường khen", category: "Ý thức" },
+                    { points: 10, reason: "Nhặt được của rơi tìm người trả lại, được nhà trường tuyên dương", category: "Ý thức" },
+                    { points: 10, reason: "Tham gia tình nguyện vào các hoạt động đột xuất", category: "Ý thức" },
+                    { points: 10, reason: "Ban cán sự làm việc tốt", category: "Trách nhiệm" },
+
+                    // 🟢 GIỜ A*
+                    { points: 15, reason: "Đạt điểm 10 trong giờ A*", category: "Học tập" },
+                    { points: 10, reason: "Đạt điểm 9 trong giờ A*", category: "Học tập" },
+
+                    // 🟢 XUNG PHONG
+                    { points: 5, reason: "Xung phong trả lời đúng", category: "Học tập" },
+                    { points: 3, reason: "Xung phong trả lời sai", category: "Học tập" }
+                ],
+                negative: [
+                    // 🔴 CHUYÊN CẦN
+                    { points: 3, reason: "Vắng học có phép (lần 4)", category: "Chuyên cần" },
+                    { points: 5, reason: "Vắng có phép trong các buổi lao động", category: "Chuyên cần" },
+                    { points: 10, reason: "Vắng học không phép, tính cả học TT", category: "Chuyên cần" },
+                    { points: 20, reason: "Vắng không phép trong các buổi lao động", category: "Chuyên cần" },
+                    { points: 20, reason: "Bỏ tiết", category: "Chuyên cần" },
+                    { points: 5, reason: "Đi học trễ", category: "Chuyên cần" },
+                    { points: 10, reason: "Vắng sinh hoạt tập thể không phép", category: "Chuyên cần" },
+
+                    // 🔴 NỀ NẾP
+                    { points: 5, reason: "Mất trật tự trong 10 phút đầu giờ sau khi đã nhắc 2 lần", category: "Nề nếp" },
+                    { points: 10, reason: "Mất trật tự trong 10 phút đầu giờ sau khi đã nhắc 3 lần", category: "Nề nếp" },
+                    { points: 5, reason: "Ra ngoài trong 10 phút đầu", category: "Nề nếp" },
+                    { points: 5, reason: "Làm việc riêng trong giờ học", category: "Nề nếp" },
+                    { points: 10, reason: "Vi phạm giờ B", category: "Nề nếp" },
+                    { points: 20, reason: "Vi phạm giờ C", category: "Nề nếp" },
+
+                    // 🔴 TÁC PHONG
+                    { points: 5, reason: "Không mang bảng tên hoặc không đúng quy định", category: "Tác phong" },
+                    { points: 5, reason: "Đồng phục không đúng quy định", category: "Tác phong" },
+                    { points: 5, reason: "Mang dép lê, đi xe trong sân trường", category: "Tác phong" },
+                    { points: 10, reason: "Nhuộm tóc", category: "Tác phong" },
+                    { points: 10, reason: "Son môi, trang điểm", category: "Tác phong" },
+                    { points: 5, reason: "Không đeo huy hiệu", category: "Tác phong" },
+                    { points: 10, reason: "Xỏ tai không đúng quy định", category: "Tác phong" },
+
+                    // 🔴 XE - VỆ SINH - TRÁCH NHIỆM
+                    { points: 10, reason: "Để xe không đúng nơi quy định", category: "Nề nếp" },
+                    { points: 5, reason: "Vi phạm về việc để xe", category: "Nề nếp" },
+                    { points: 5, reason: "Vệ sinh chưa tốt", category: "Vệ sinh" },
+                    { points: 10, reason: "Ra về chưa tắt đèn, quạt", category: "Trách nhiệm" },
+
+                    // 🔴 HỌC TẬP
+                    { points: 10, reason: "Điểm miệng: 0", category: "Học tập" },
+                    { points: 10, reason: "Điểm miệng: 1", category: "Học tập" },
+                    { points: 10, reason: "Điểm miệng: 2", category: "Học tập" },
+                    { points: 5, reason: "Điểm miệng: 3", category: "Học tập" },
+                    { points: 5, reason: "Điểm miệng: 4", category: "Học tập" },
+                    { points: 2, reason: "Điểm nợ", category: "Học tập" },
+                    { points: 5, reason: "Thiếu dụng cụ học tập, SGK, SBT…", category: "Học tập" },
+                    { points: 10, reason: "Không làm bài tập về nhà", category: "Học tập" },
+
+                    // 🔴 KỶ LUẬT
+                    { points: 20, reason: "Vô lễ với GV, CNV", category: "Kỷ luật" },
+                    { points: 10, reason: "Tự ý đổi chỗ ngồi", category: "Kỷ luật" },
+                    { points: 10, reason: "Gian dối", category: "Kỷ luật" },
+                    { points: 5, reason: "Vi phạm trong giờ chào cờ đầu tuần và trong các buổi lễ của nhà trường", category: "Kỷ luật" },
+                    { points: 20, reason: "Sử dụng điện thoại trong giờ học", category: "Kỷ luật" },
+                    { points: 20, reason: "Không cất điện thoại theo quy định", category: "Kỷ luật" },
+
+                    // 🔴 TRÁCH NHIỆM
+                    { points: 10, reason: "Ban cán sự không hoàn thành xếp loại và công việc đúng thời hạn", category: "Trách nhiệm" },
+                    { points: 15, reason: "Sao đỏ vắng trực", category: "Trách nhiệm" },
+
+                    // 🔴 GIAO THÔNG
+                    { points: 20, reason: "Vi phạm luật giao thông", category: "Giao thông" },
+                    { points: 10, reason: "Vượt đèn đỏ", category: "Giao thông" }
+                ],
+                serious: [
+                    { reason: "Hút thuốc lá hoặc mang thuốc lá vào khuôn viên trường", category: "Vi phạm nghiêm trọng", conductWarning: true },
+                    { reason: "Uống rượu bia trước khi đến lớp", category: "Vi phạm nghiêm trọng", conductWarning: true },
+                    { reason: "Tham gia đánh nhau trong và ngoài trường", category: "Vi phạm nghiêm trọng", conductWarning: true },
+                    { reason: "Gây rối nơi công cộng", category: "Vi phạm nghiêm trọng", conductWarning: true },
+                    { reason: "Kết băng nhóm với thanh niên bên ngoài để gây gổ, đánh nhau", category: "Vi phạm nghiêm trọng", conductWarning: true },
+                    { reason: "Mang hung khí đến trường", category: "Vi phạm nghiêm trọng", conductWarning: true },
+                    { reason: "Tổ chức đánh bài trong khu vực nhà trường có ăn tiền", category: "Vi phạm nghiêm trọng", conductWarning: true },
+                    { reason: "Mang pháo vào khu vực trường học", category: "Vi phạm nghiêm trọng", conductWarning: true }
+                ]
             };
-            if (!state.criteria || state.criteria.version !== 2) state.criteria = defaultCriteria;
+            if (!state.criteria || state.criteria.version !== 3) state.criteria = defaultCriteria;
+
+            // Backwards compatibility for existing criteria missing category
+            state.criteria.positive.forEach(c => { if(!c.category) c.category = "Khác"; });
+            state.criteria.negative.forEach(c => { if(!c.category) c.category = "Khác"; });
+            if (!state.criteria.serious) state.criteria.serious = defaultCriteria.serious;
         }
 
         function initDefaultStudents() {
@@ -332,9 +455,9 @@
         }
 
         function getAvatarImg(url, name, classes = "w-10 h-10") {
-            if (url) return `<img src="${url}" class="${classes} rounded-full object-cover shadow-sm border-2 border-white">`;
             const safeName = name || 'User'; const seed = encodeURIComponent(safeName);
-            return `<img src="https://api.dicebear.com/7.x/notionists/svg?seed=${seed}&backgroundColor=e0e7ff,fef08a,dcfce7,fee2e2" class="${classes} rounded-full object-cover shadow-sm border-2 border-white">`;
+            const finalUrl = url || `https://api.dicebear.com/7.x/notionists/svg?seed=${seed}&backgroundColor=e0e7ff,fef08a,dcfce7,fee2e2`;
+            return `<img src="${finalUrl}" class="${classes} rounded-full object-cover flex-shrink-0 border-2 border-white shadow-sm">`;
         }
 
         function switchTab(tabId) { state.currentTab = tabId; renderLayout(); }
@@ -442,72 +565,114 @@
         }
 
         function renderViewTongQuan() {
-            const topStudentsHtml = [...state.students].sort((a, b) => b.points - a.points).slice(0, 5).map((s, index) => {
-                const colors = ['#f59e0b', '#94a3b8', '#d97706', '#3b82f6', '#8b5cf6']; const color = colors[index] || '#64748b';
+            // Calculate top 5 students for Bảng Vàng
+            const topStudentsHtml = [...state.students].sort((a, b) => (b.points || 0) - (a.points || 0)).slice(0, 5).map((s, index) => {
+                const rank = index + 1;
+                let crownHtml = '';
+                let badgeColor = 'bg-slate-400';
+
+                if (rank === 1) { crownHtml = '<i class="ph-fill ph-crown text-3xl absolute -top-5 text-yellow-400 drop-shadow-md z-10"></i>'; badgeColor = 'bg-yellow-400'; }
+                else if (rank === 2) { crownHtml = '<i class="ph-fill ph-crown text-3xl absolute -top-5 text-slate-300 drop-shadow-md z-10"></i>'; badgeColor = 'bg-slate-300'; }
+                else if (rank === 3) { crownHtml = '<i class="ph-fill ph-crown text-3xl absolute -top-5 text-amber-600 drop-shadow-md z-10"></i>'; badgeColor = 'bg-amber-600'; }
+                else if (rank === 4) { badgeColor = 'bg-blue-500'; }
+                else if (rank === 5) { badgeColor = 'bg-purple-500'; }
+
                 return `
-                    <div class="flex-shrink-0 w-36 bg-white rounded-3xl p-5 flex flex-col items-center justify-center relative border border-slate-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group hover:-translate-y-2" onclick="switchTab('tich-diem'); selectStudentForPoints(${s.id})">
-                        ${index < 3 ? `<i class="ph-fill ph-crown text-3xl absolute -top-4 drop-shadow-lg z-10 animate-bounce-slight" style="color: ${color}"></i>` : ''}
-                        <div class="relative mb-4 transform group-hover:scale-110 transition-transform mt-2">
-                            ${getAvatarImg(s.avatarUrl, s.name, "w-16 h-16 shadow-md")}
-                            <div class="absolute -bottom-2 -right-2 w-7 h-7 rounded-full text-white flex items-center justify-center text-xs font-bold border-2 border-white shadow-md" style="background-color: ${color}">${index + 1}</div>
+                    <div class="flex-shrink-0 bg-white rounded-[1.5rem] p-4 flex flex-col items-center justify-center relative w-[130px] cursor-pointer hover:-translate-y-1 transition-transform shadow-sm" onclick="switchTab('tich-diem'); selectStudentForPoints(${s.id})">
+                        <div class="relative mb-3 flex flex-col items-center justify-center w-full mt-2">
+                            ${crownHtml}
+                            <div class="relative">
+                                ${getAvatarImg(s.avatarUrl, s.name, "w-14 h-14 shadow-sm border-[3px] border-white ring-1 ring-slate-100")}
+                                <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full text-white flex items-center justify-center text-[10px] font-black border-2 border-white shadow-sm ${badgeColor}">${rank}</div>
+                            </div>
                         </div>
-                        <div class="text-sm font-bold text-slate-800 text-center w-full truncate mb-2">${s.name.split(' ').pop()}</div>
-                        <div class="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100">${s.points} điểm</div>
+                        <div class="text-[13px] font-bold text-slate-800 text-center w-full truncate mb-2 leading-tight">${s.name}</div>
+                        <div class="text-[10px] font-black text-white bg-slate-800 px-3 py-1 rounded-full w-max mx-auto">${s.points || 0} điểm</div>
                     </div>
                 `;
             }).join('');
 
+            // Calculate mock progress for visual consistency
+            const studentsWithProgress = state.students.map(s => {
+                const basePoints = s.points || 0;
+                const weekProg = basePoints > 0 ? Math.floor((Math.sin(s.id * 10) + 1) * 15) + 5 : 0; 
+                return { ...s, weekProg: Math.min(weekProg, basePoints) };
+            });
+            const topProgress = [...studentsWithProgress].sort((a,b) => b.weekProg - a.weekProg).slice(0, 3);
+
+            // Calculate absences for today
+            const d = new Date();
+            const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const todayRecord = state.attendanceRecords[todayStr] || {};
+            let absentCount = 0;
+            state.students.forEach(s => {
+                const status = todayRecord[s.id];
+                if (status === 'excused' || status === 'unexcused') absentCount++;
+            });
+
             return `
-                <div class="max-w-7xl mx-auto space-y-8 animate-fade-in pb-12">
-                    <div class="w-full h-64 ${state.theme.bannerUrl ? 'bg-cover bg-center' : `bg-gradient-to-br ${state.theme.bannerColorClass} bg-banner`} rounded-[2rem] shadow-xl relative flex flex-col items-center justify-center group overflow-hidden" ${state.theme.bannerUrl ? `style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.6)), url('${state.theme.bannerUrl}');"` : ''}>
-                        <div class="text-blue-200 text-[11px] font-bold uppercase tracking-[0.25em] mb-4 z-10 drop-shadow-md glass px-5 py-2 rounded-full">${state.theme.month}</div>
-                        <h1 class="text-white text-4xl md:text-5xl font-extrabold uppercase tracking-tight text-center px-4 z-10 drop-shadow-2xl">${state.theme.title}</h1>
-                        <button onclick="openEditThemeModal()" class="absolute top-6 right-6 glass text-white rounded-2xl p-3 opacity-0 group-hover:opacity-100 transition-all z-20 hover:bg-white/30"><i class="ph-fill ph-pencil-simple text-xl"></i></button>
+                <div class="max-w-7xl mx-auto space-y-6 animate-fade-in pb-12 pt-2">
+                    <!-- Banner -->
+                    <div class="w-full h-40 md:h-56 ${state.theme.bannerUrl ? 'bg-cover bg-center' : `bg-gradient-to-br ${state.theme.bannerColorClass}`} rounded-[2rem] shadow-sm relative flex flex-col items-center justify-center group overflow-hidden" ${state.theme.bannerUrl ? `style="background-image: url('${state.theme.bannerUrl}');"` : ''}>
+                        ${!state.theme.bannerUrl ? `
+                            <div class="text-white/80 text-[11px] font-bold uppercase tracking-[0.25em] mb-3 z-10">${state.theme.month}</div>
+                            <h1 class="text-white text-3xl md:text-5xl font-black uppercase tracking-tight text-center px-4 z-10 drop-shadow-md">${state.theme.title}</h1>
+                        ` : ''}
+                        <button onclick="openEditThemeModal()" class="absolute top-4 right-4 bg-black/40 text-white rounded-full p-2.5 opacity-0 group-hover:opacity-100 transition-all z-20 hover:bg-black/60"><i class="ph-fill ph-pencil-simple text-base"></i></button>
                     </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div class="lg:col-span-2 bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden">
-                            <div class="flex justify-between items-center mb-8 relative z-10">
-                                <h3 class="text-slate-800 font-black text-xl flex items-center gap-3 tracking-wide"><div class="p-2 bg-yellow-100 rounded-xl"><i class="ph-fill ph-crown text-yellow-500 text-2xl"></i></div> BẢNG VÀNG DANH DỰ</h3>
-                                <button onclick="switchTab('xep-hang')" class="text-sm font-bold text-blueAccent hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-4 py-2 rounded-xl transition-colors">Xem tất cả <i class="ph-bold ph-arrow-right"></i></button>
-                            </div>
-                            <div class="flex gap-5 overflow-x-auto pb-6 pt-4 px-2 custom-scrollbar relative z-10">${topStudentsHtml || '<div class="text-slate-400 text-sm italic py-10 w-full text-center">Chưa có dữ liệu thi đua</div>'}</div>
-                        </div>
-
-                        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2rem] p-8 shadow-md relative overflow-hidden text-white flex flex-col">
-                            <div class="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                    <!-- Bảng Vàng & Tiến Bộ Grid -->
+                    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                        <!-- Bảng Vàng Danh Dự -->
+                        <div class="xl:col-span-8 bg-[#1c1c38] rounded-[2rem] p-6 md:p-8 shadow-sm relative overflow-hidden flex flex-col">
                             <div class="flex justify-between items-center mb-6 relative z-10">
-                                <h3 class="font-black text-xl flex items-center gap-3"><i class="ph-fill ph-trend-up text-yellow-300 text-2xl"></i> TIẾN BỘ BẬC NHẤT</h3>
+                                <h3 class="text-white font-black text-lg md:text-xl flex items-center gap-2 uppercase tracking-wide"><i class="ph-fill ph-crown text-yellow-400 text-2xl"></i> BẢNG VÀNG DANH DỰ</h3>
+                                <button onclick="switchTab('xep-hang')" class="text-[11px] font-bold text-white/70 hover:text-white flex items-center gap-1 bg-white/10 px-4 py-2 rounded-full transition-colors border border-white/5">Xem chi tiết <i class="ph-bold ph-caret-right"></i></button>
                             </div>
-                            <div class="space-y-4 relative z-10 flex-1 flex flex-col justify-center">
-                                ${[...state.students].sort((a,b)=>b.points-a.points).slice(0,3).map((s,i) => `
-                                    <div class="flex items-center gap-4 bg-white/10 hover:bg-white/20 border border-white/10 transition-all rounded-2xl p-4 cursor-pointer group backdrop-blur-sm" onclick="switchTab('tich-diem'); selectStudentForPoints(${s.id})">
-                                        <div class="font-black text-white/50 text-xl w-4">${i+1}</div>
-                                        ${getAvatarImg(s.avatarUrl, s.name, "w-12 h-12 border-white")}
-                                        <div class="flex-1 min-w-0"><div class="font-bold text-base text-white truncate">${s.name}</div><div class="text-[10px] text-indigo-200 uppercase font-bold tracking-wider">${s.group}</div></div>
-                                        <div class="bg-white text-indigo-700 text-sm font-bold px-3.5 py-1.5 rounded-xl shadow-sm">+${Math.floor(Math.random()*15)+5}</div>
+                            <div class="flex gap-4 overflow-x-auto pb-4 custom-scrollbar relative z-10 items-end flex-1">
+                                ${topStudentsHtml || '<div class="text-white/40 text-sm italic w-full text-center py-10">Chưa có dữ liệu thi đua</div>'}
+                            </div>
+                        </div>
+
+                        <!-- Tiến Bộ Nổi Bật -->
+                        <div class="xl:col-span-4 bg-[#4f6cf6] rounded-[2rem] p-6 md:p-8 shadow-sm relative overflow-hidden flex flex-col">
+                            <div class="flex justify-between items-center mb-6 relative z-10">
+                                <h3 class="font-black text-white text-lg md:text-xl flex items-center gap-2 uppercase tracking-wide"><i class="ph-fill ph-lightning text-yellow-300 text-2xl"></i> TIẾN BỘ NỔI BẬT</h3>
+                                <div class="text-[10px] font-bold text-[#4f6cf6] bg-white px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">TUẦN NÀY</div>
+                            </div>
+                            <div class="flex flex-col gap-3 relative z-10 flex-1 justify-center">
+                                ${topProgress.map((s,i) => `
+                                    <div class="flex items-center gap-3 bg-white/15 hover:bg-white/25 transition-all rounded-2xl p-3 cursor-pointer group" onclick="switchTab('tich-diem'); selectStudentForPoints(${s.id})">
+                                        ${getAvatarImg(s.avatarUrl, s.name, "w-11 h-11 border-2 border-white/50")}
+                                        <div class="flex-1 min-w-0"><div class="font-bold text-sm text-white truncate">${s.name}</div><div class="text-[9px] text-blue-100 uppercase font-bold tracking-wider opacity-80">${s.group}</div></div>
+                                        <div class="bg-white text-[#4f6cf6] text-xs font-black px-3.5 py-1.5 rounded-full shadow-sm">+${s.weekProg}</div>
                                     </div>
-                                `).join('') || '<div class="text-white/70 text-sm italic text-center py-10 border border-white/20 rounded-2xl border-dashed">Chưa có dữ liệu</div>'}
+                                `).join('') || '<div class="text-white/50 text-sm italic text-center py-10">Chưa có dữ liệu</div>'}
                             </div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group relative overflow-hidden">
-                            <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-150 transition-transform duration-500"><i class="ph-fill ph-users text-8xl"></i></div>
-                            <div class="w-12 h-12 bg-blue-50 text-blueAccent rounded-2xl flex items-center justify-center mb-4 relative z-10"><i class="ph-fill ph-users text-2xl"></i></div>
-                            <div class="relative z-10"><div class="text-4xl font-black text-slate-800">${state.students.length}</div><div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Học sinh</div></div>
+                    <!-- Thống kê Row -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                        <div class="bg-white rounded-[2rem] p-5 md:p-6 flex items-center gap-4 shadow-sm border border-slate-100">
+                            <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center flex-shrink-0"><i class="ph-fill ph-users text-3xl"></i></div>
+                            <div>
+                                <div class="text-3xl font-black text-slate-800 leading-none mb-1">${state.students.length}</div>
+                                <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">HỌC SINH</div>
+                            </div>
                         </div>
-                        <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group relative overflow-hidden">
-                             <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-150 transition-transform duration-500"><i class="ph-fill ph-flag-pennant text-8xl"></i></div>
-                            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 relative z-10"><i class="ph-fill ph-flag-pennant text-2xl"></i></div>
-                            <div class="relative z-10"><div class="text-4xl font-black text-slate-800">${state.groups.length}</div><div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tổ thi đua</div></div>
+                        <div class="bg-white rounded-[2rem] p-5 md:p-6 flex items-center gap-4 shadow-sm border border-slate-100">
+                            <div class="w-14 h-14 rounded-2xl bg-red-50 text-red-400 flex items-center justify-center flex-shrink-0"><i class="ph-fill ph-user-minus text-3xl"></i></div>
+                            <div>
+                                <div class="text-3xl font-black text-slate-800 leading-none mb-1">${absentCount}</div>
+                                <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">VẮNG HÔM NAY</div>
+                            </div>
                         </div>
-                        <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow group relative overflow-hidden">
-                             <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-150 transition-transform duration-500"><i class="ph-fill ph-gift text-8xl"></i></div>
-                            <div class="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center mb-4 relative z-10"><i class="ph-fill ph-gift text-2xl"></i></div>
-                            <div class="relative z-10"><div class="text-4xl font-black text-slate-800">${state.students.filter(x=>x.stars>=10).length}</div><div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Đủ sao đổi quà</div></div>
-                        </div>
+                        <div class="bg-white rounded-[2rem] p-5 md:p-6 flex items-center gap-4 shadow-sm border border-slate-100">
+                            <div class="w-14 h-14 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center flex-shrink-0"><i class="ph-fill ph-users-three text-3xl"></i></div>
+                            <div>
+                                <div class="text-3xl font-black text-slate-800 leading-none mb-1">${state.groups.length}</div>
+                                <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">NHÓM THI ĐUA</div>
                         <button onclick="openTimerDrawer()" class="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-[2rem] shadow-md border border-slate-700 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden text-left cursor-pointer">
                             <div class="w-12 h-12 bg-white/10 text-yellow-400 rounded-2xl flex items-center justify-center mb-4 relative z-10"><i class="ph-fill ph-timer text-2xl group-hover:animate-spin-slow"></i></div>
                             <div class="relative z-10"><div class="text-2xl font-black text-white">Đồng hồ</div><div class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Mở công cụ</div></div>
@@ -520,42 +685,82 @@
         function renderViewHocSinh() {
             const studentsHtml = state.students.map(s => {
                 const group = state.groups.find(g => g.name === s.group); 
-                const borderColorClass = group ? group.color.replace('text-', 'border-').replace('500', '200') : 'border-slate-200';
+                let borderColorClass = 'border-slate-200';
+                if (group) {
+                    if (group.color.includes('red')) borderColorClass = 'border-red-400';
+                    else if (group.color.includes('green')) borderColorClass = 'border-emerald-400';
+                    else if (group.color.includes('yellow')) borderColorClass = 'border-yellow-400';
+                    else if (group.color.includes('blue')) borderColorClass = 'border-blue-400';
+                    else if (group.color.includes('purple')) borderColorClass = 'border-purple-400';
+                    else if (group.color.includes('pink')) borderColorClass = 'border-pink-400';
+                }
+
                 const currentPoints = s.points || 0; const milestones = [100, 300, 500]; let nextMilestoneVal = milestones.find(m => m > currentPoints) || 500;
                 let pointsNeeded = Math.max(0, nextMilestoneVal - currentPoints); let progressPercent = Math.min(100, (currentPoints / nextMilestoneVal) * 100);
                 
+                let rankTitle = 'Chiến binh Sơ Cấp';
+                if(nextMilestoneVal === 300) rankTitle = 'Chiến binh Trung Cấp';
+                if(nextMilestoneVal === 500) rankTitle = 'Chiến binh Cao Cấp';
+                if(currentPoints >= 500) rankTitle = 'Siêu Chiến Binh';
+                
                 return `
-                <div class="bg-white rounded-[2rem] p-6 shadow-sm border-2 ${borderColorClass} flex flex-col h-full relative group hover:shadow-xl hover:-translate-y-2 transition-all duration-300 overflow-hidden">
-                    <div class="absolute top-0 right-0 bg-slate-50 w-16 h-16 rounded-bl-full -mr-4 -mt-4 opacity-50 z-0"></div>
+                <div class="bg-white rounded-[1.5rem] p-6 shadow-sm border-2 ${borderColorClass} flex flex-col h-full relative hover:shadow-lg transition-all duration-300">
                     <div class="absolute top-4 right-4 z-20">
-                        <button onclick="toggleStudentMenu(event, ${s.id})" class="text-slate-400 hover:text-slate-800 p-2 rounded-full focus:outline-none bg-white shadow-sm border border-slate-100 hover:bg-slate-50"><i class="ph-bold ph-dots-three text-xl"></i></button>
-                        <div id="student-menu-${s.id}" class="hidden absolute right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-30 origin-top-right p-1.5 animate-fade-in">
-                            <button onclick="openStudentHistoryModal(${s.id})" class="w-full text-left px-4 py-2.5 text-sm text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold flex items-center gap-2"><i class="ph-fill ph-clock-counter-clockwise text-lg"></i> Lịch sử</button>
-                            <button onclick="openEditStudentModal(${s.id})" class="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 rounded-xl font-bold flex items-center gap-2"><i class="ph-fill ph-pencil-simple text-blueAccent text-lg"></i> Chỉnh sửa</button>
-                            <button onclick="deleteStudent(${s.id})" class="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl font-bold flex items-center gap-2"><i class="ph-fill ph-trash text-lg"></i> Xóa</button>
+                        <button onclick="toggleStudentMenu(event, ${s.id})" class="text-slate-300 hover:text-slate-600 p-1 rounded-full focus:outline-none transition-colors"><i class="ph-bold ph-dots-three-vertical text-2xl"></i></button>
+                        <div id="student-menu-${s.id}" class="hidden absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden z-30 p-2 animate-fade-in">
+                            <button onclick="switchTab('tich-diem'); state.pointsForm.targetType='student'; state.pointsForm.selectedTargetId='${s.id}'; renderLayout();" class="w-full text-left px-3 py-2.5 text-sm text-yellow-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-fill ph-star text-lg"></i> Cộng điểm</button>
+                            <button onclick="openStudentHistoryModal(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-emerald-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-bold ph-clock-counter-clockwise text-lg"></i> Lịch sử</button>
+                            <button onclick="openEditStudentModal(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-blue-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-fill ph-pencil-simple text-lg"></i> Chỉnh sửa</button>
+                            <button onclick="deleteStudent(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-fill ph-trash text-lg"></i> Xóa</button>
                         </div>
                     </div>
-                    <div class="flex items-center gap-5 mb-5 pr-8 relative z-10">
-                        ${getAvatarImg(s.avatarUrl, s.name, "w-16 h-16 shadow-md")}
+                    
+                    <div class="flex items-center gap-4 mb-6 pr-6 relative z-10">
+                        ${getAvatarImg(s.avatarUrl, s.name, "w-[60px] h-[60px]")}
                         <div class="flex-1 min-w-0">
-                            <div class="font-black text-slate-800 text-lg mb-1 truncate leading-tight">${s.name}</div>
-                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-xl inline-flex items-center gap-1 border border-slate-200"><i class="ph-fill ph-users"></i> ${s.group || 'Chưa nhóm'}</div>
+                            <div class="font-black text-slate-800 text-[17px] mb-1.5 truncate leading-tight">${s.name}</div>
+                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-md inline-block border border-slate-200">${s.group || 'Chưa nhóm'}</div>
                         </div>
                     </div>
-                    <div class="space-y-2.5 mb-6 bg-slate-50/80 p-4 rounded-2xl border border-slate-100 text-[13px] font-semibold text-slate-600 relative z-10">
-                        <div class="flex items-center gap-3 truncate"><div class="w-6 h-6 rounded-lg bg-blue-100 text-blueAccent flex items-center justify-center flex-shrink-0"><i class="ph-fill ph-shield-star"></i></div> <span class="truncate">${s.role || 'Học sinh'}</span></div>
-                        <div class="flex items-center gap-3 truncate"><div class="w-6 h-6 rounded-lg bg-red-100 text-red-500 flex items-center justify-center flex-shrink-0"><i class="ph-fill ph-target"></i></div> <span class="truncate">${s.goal || 'Mục tiêu: Chưa có'}</span></div>
-                        <div class="flex items-center gap-3 truncate"><div class="w-6 h-6 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0"><i class="ph-fill ph-qr-code"></i></div> <span class="truncate font-bold text-purple-700 font-mono tracking-wider">${s.code || '---'}</span></div>
+                    
+                    <div class="space-y-3.5 mb-8 text-[13px] font-medium text-slate-600 relative z-10 flex-1">
+                        <div class="flex items-center gap-3 truncate">
+                            <i class="ph-fill ph-shield-star text-blue-500 text-[18px] flex-shrink-0"></i> 
+                            <span class="truncate">${s.role || 'Học sinh'}</span>
+                        </div>
+                        <div class="flex items-center gap-3 truncate">
+                            <i class="ph-fill ph-target text-red-500 text-[18px] flex-shrink-0"></i> 
+                            <span class="truncate">${s.goal || 'Mục tiêu: Chưa có'}</span>
+                        </div>
+                        <div class="flex items-center gap-3 truncate">
+                            <i class="ph-fill ph-sparkle text-yellow-500 text-[18px] flex-shrink-0"></i> 
+                            <span class="truncate">${s.talent || 'Năng khiếu: Chưa có'}</span>
+                        </div>
+                        <div class="flex items-center gap-3 truncate">
+                            <i class="ph-fill ph-qr-code text-indigo-500 text-[18px] flex-shrink-0"></i> 
+                            <span class="truncate font-bold text-indigo-600">Mã tra cứu: ${s.code || '---'}</span>
+                        </div>
                     </div>
-                    <div class="mt-auto pt-4 border-t border-slate-100 border-dashed relative z-10">
+                    
+                    <div class="mt-auto relative z-10">
                         <div class="flex justify-between items-end mb-2">
-                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tiến độ</div>
-                            <div class="text-[11px] font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">Cần ${pointsNeeded}đ</div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">MỤC TIÊU TIẾP THEO</div>
+                            <div class="text-[11px] font-bold text-orange-600">Còn ${pointsNeeded}đ</div>
                         </div>
-                        <div class="w-full bg-slate-100 h-2.5 rounded-full mb-5 overflow-hidden shadow-inner"><div class="bg-gradient-to-r from-blue-400 to-blueAccent h-full rounded-full transition-all duration-1000" style="width: ${progressPercent}%"></div></div>
-                        <div class="flex justify-between items-center">
-                            <button onclick="openEditStudentModal(${s.id})" class="px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 transition-colors flex items-center gap-1.5"><i class="ph-bold ph-identification-card text-base"></i> Hồ sơ</button>
-                            <div class="text-right leading-none flex items-baseline gap-1"><div class="text-3xl font-black text-slate-800">${currentPoints}</div><div class="text-xs text-slate-400 font-bold uppercase">đ</div></div>
+                        <div class="flex items-center gap-1.5 mb-2.5">
+                            <i class="ph-fill ph-medal text-yellow-500 text-lg"></i> 
+                            <span class="font-bold text-[13px] text-slate-700">${rankTitle}</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2 rounded-full mb-6 overflow-hidden">
+                            <div class="bg-blueAccent h-full rounded-full transition-all duration-1000" style="width: ${progressPercent}%"></div>
+                        </div>
+                        
+                        <div class="flex justify-between items-end border-t border-slate-100 pt-4">
+                            <button onclick="openEditStudentModal(${s.id})" class="px-4 py-2 bg-slate-100/80 text-slate-500 font-bold rounded-xl text-xs hover:bg-slate-200 transition-colors flex items-center gap-2 border border-slate-200"><i class="ph-bold ph-identification-card text-sm"></i> XEM HỒ SƠ</button>
+                            <div class="text-right leading-none flex flex-col items-end">
+                                <div class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">TỔNG ĐIỂM</div>
+                                <div class="text-[28px] font-black text-slate-800">${currentPoints}</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -566,12 +771,13 @@
                 <div class="max-w-7xl mx-auto animate-fade-in space-y-8 pb-12" onclick="closeAllStudentMenus()">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-slate-200 pb-6 gap-4">
                         <div>
-                            <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3"><i class="ph-fill ph-users-three text-blueAccent"></i> Quản lý Học sinh</h2>
-                            <p class="text-slate-500 text-sm font-medium mt-1">Quản lý danh sách, phân công nhiệm vụ và mã tra cứu.</p>
+                            <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">Quản lí Học sinh</h2>
+                            <p class="text-slate-500 text-sm font-medium mt-1">Thông tin chi tiết, vai trò và mục tiêu phấn đấu của các em</p>
                         </div>
                         <div class="flex gap-3 w-full sm:w-auto">
-                            <button onclick="openImportModal()" class="flex-1 sm:flex-none px-5 py-3 bg-white text-slate-600 border border-slate-200 font-bold rounded-xl text-sm shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-upload-simple text-lg"></i> Nhập từ Excel</button>
-                            <button onclick="openEditStudentModal(null)" class="flex-1 sm:flex-none px-5 py-3 bg-primary text-white font-bold rounded-xl text-sm shadow-md hover:bg-secondary transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-user-plus text-lg"></i> Thêm mới</button>
+                            <button onclick="openEditStudentModal(null)" class="flex-1 sm:flex-none px-5 py-3 bg-[#0f172a] text-white font-bold rounded-xl text-sm shadow-md hover:bg-black transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-user-plus text-lg"></i> Thêm HS</button>
+                            <button onclick="alert('Chức năng tải file mẫu đang phát triển')" class="flex-1 sm:flex-none px-5 py-3 bg-white text-slate-600 border border-slate-200 font-bold rounded-xl text-sm shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="ph-fill ph-file-xls text-green-600 text-lg"></i> File mẫu</button>
+                            <button onclick="openImportModal()" class="flex-1 sm:flex-none px-5 py-3 bg-blue-50 text-blue-700 border border-blue-100 font-bold rounded-xl text-sm shadow-sm hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-upload-simple text-lg"></i> Nhập DS</button>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8">
@@ -588,168 +794,311 @@
         }
 
         function renderViewTichDiem() {
-            const selectedStudentId = state.selectedStudentForPoints || null;
-            const student = state.students.find(s => s.id === selectedStudentId);
+            const pf = state.pointsForm;
+            const isAdd = pf.actionType === 'add';
+            const sign = isAdd ? '+' : '-';
+            
+            // --- Helper styling classes ---
+            const actionBtnClass = (active, isAddBtn) => {
+                if (!active) return "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 shadow-sm";
+                if (isAddBtn) return "bg-emerald-600 text-white border border-emerald-700 shadow-md transform scale-105 z-10";
+                return "bg-red-50 text-red-600 border border-red-200 shadow-inner transform scale-105 z-10 font-bold";
+            };
 
-            let progressHtml = `
-                <div class="text-center py-16 text-slate-400 font-medium">
-                    <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 relative overflow-hidden group border border-slate-100 bg-slate-50 shadow-inner">
-                        <i class="ph-fill ph-hand-pointing text-4xl text-slate-300 relative z-10 animate-bounce-slight"></i>
-                    </div>
-                    <h3 class="text-xl font-bold text-slate-600 mb-2">Chưa chọn học sinh</h3>
-                    <p class="text-sm text-slate-400">Vui lòng chọn một học sinh từ danh sách để đánh giá điểm số</p>
-                </div>
-            `;
+            const targetBtnClass = (active) => {
+                if (!active) return "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50";
+                return "bg-purple-600 text-white border border-purple-700 shadow-md font-bold";
+            };
 
-            if (student) {
-                const maxPoints = 500; const milestones = [100, 300, 500]; const currentPoints = student.points || 0;
-                let nextMilestone = milestones.find(m => m > currentPoints) || maxPoints;
-                let pointsNeeded = Math.max(0, nextMilestone - currentPoints);
-                let progressPercent = Math.min(100, (currentPoints / maxPoints) * 100);
-
-                progressHtml = `
-                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-6 relative z-10">
-                        <div class="flex items-center gap-6">
-                            ${getAvatarImg(student.avatarUrl, student.name, "w-20 h-20 ring-4 ring-blue-100 shadow-lg")}
-                            <div>
-                                <h3 class="font-black text-2xl md:text-3xl text-slate-800 mb-2 tracking-tight">${student.name}</h3>
-                                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-700 font-bold"><i class="ph-fill ph-users"></i> ${student.group}</div>
-                                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-100 text-xs text-orange-700 font-bold ml-2"><i class="ph-fill ph-target"></i> Cần ${pointsNeeded}đ cho mốc tiếp theo</div>
-                            </div>
-                        </div>
-                        <div class="text-left md:text-right w-full lg:w-auto bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner min-w-[160px]">
-                            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">TỔNG ĐIỂM TÍCH LŨY</div>
-                            <div class="text-4xl md:text-5xl font-black text-blueAccent leading-none">${currentPoints}</div>
+            // --- Dropdown Target Selection ---
+            let targetSelectHtml = '';
+            if (pf.targetType === 'student') {
+                targetSelectHtml = `
+                    <div class="mb-6 animate-fade-in">
+                        <label class="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Chọn Học Sinh:</label>
+                        <div class="relative">
+                            <select onchange="updatePointsForm('selectedTargetId', this.value)" class="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all appearance-none cursor-pointer shadow-sm">
+                                <option value="">-- Chọn học sinh --</option>
+                                ${[...state.students].sort((a,b) => a.name.localeCompare(b.name)).map(s => 
+                                    `<option value="${s.id}" ${pf.selectedTargetId == s.id ? 'selected' : ''}>${s.name} (${s.group} - ${s.points}đ)</option>`
+                                ).join('')}
+                            </select>
+                            <i class="ph-bold ph-caret-down absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xl"></i>
                         </div>
                     </div>
-                    
-                    <div class="relative w-full max-w-4xl mx-auto pt-6 pb-4 px-4 z-10">
-                        <div class="absolute top-1/2 left-0 w-full h-3.5 bg-slate-100 -translate-y-1/2 rounded-full border border-slate-200/60 shadow-inner"></div>
-                        <div class="absolute top-1/2 left-0 h-3.5 bg-gradient-to-r from-blue-400 to-blueAccent -translate-y-1/2 rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(59,130,246,0.4)]" style="width: ${progressPercent}%"></div>
-                        ${milestones.map(m => {
-                            const isReached = currentPoints >= m; const leftPos = (m / maxPoints) * 100;
-                            return `
-                                <div class="absolute top-1/2 -translate-y-1/2 flex flex-col items-center transform -translate-x-1/2" style="left: ${leftPos}%">
-                                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-full border-4 ${isReached ? 'border-blueAccent bg-white text-blueAccent shadow-lg scale-110' : 'border-slate-200 bg-slate-50 text-slate-300'} flex items-center justify-center font-bold text-lg md:text-xl z-10 transition-all duration-500">${isReached ? '<i class="ph-fill ph-star"></i>' : '<i class="ph-fill ph-lock-key"></i>'}</div>
-                                    <div class="absolute top-12 md:top-14 text-[10px] md:text-xs font-bold ${isReached ? 'text-blue-700 bg-blue-50 px-2 py-1 rounded-md border border-blue-100' : 'text-slate-400'} shadow-sm">${m}</div>
-                                </div>
-                            `;
-                        }).join('')}
+                `;
+            } else if (pf.targetType === 'group') {
+                targetSelectHtml = `
+                    <div class="mb-6 animate-fade-in">
+                        <label class="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">Chọn Nhóm/Tổ:</label>
+                        <div class="relative">
+                            <select onchange="updatePointsForm('selectedTargetId', this.value)" class="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all appearance-none cursor-pointer shadow-sm">
+                                <option value="">-- Chọn nhóm/tổ --</option>
+                                ${state.groups.map(g => 
+                                    `<option value="${g.name}" ${pf.selectedTargetId === g.name ? 'selected' : ''}>${g.name}</option>`
+                                ).join('')}
+                            </select>
+                            <i class="ph-bold ph-caret-down absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xl"></i>
+                        </div>
+                    </div>
+                `;
+            } else {
+                targetSelectHtml = `
+                    <div class="mb-6 p-4 bg-purple-50 border border-purple-100 rounded-xl animate-fade-in flex items-center gap-3">
+                        <div class="p-2 bg-purple-200 text-purple-700 rounded-lg"><i class="ph-fill ph-users-three text-xl"></i></div>
+                        <div>
+                            <div class="font-bold text-purple-800 text-sm">Áp dụng cho Cả Lớp</div>
+                            <div class="text-[11px] text-purple-600 mt-0.5">Điểm sẽ được cập nhật cho tất cả ${state.students.length} học sinh.</div>
+                        </div>
                     </div>
                 `;
             }
 
-            const renderCriteriaBtn = (c, i, isPositive) => {
-                const colors = isPositive 
-                    ? { bg: 'from-emerald-50 to-emerald-100', text: 'text-emerald-600', border: 'border-emerald-200', shadow: 'hover:shadow-emerald-500/20', hover: 'hover:border-emerald-400' }
-                    : { bg: 'from-red-50 to-red-100', text: 'text-red-600', border: 'border-red-200', shadow: 'hover:shadow-red-500/20', hover: 'hover:border-red-400' };
-                const prefix = isPositive ? '+' : '';
+            // --- Quick Criteria Selection ---
+            const criteriaList = isAdd ? state.criteria.positive : state.criteria.negative;
+            const criteriaHtml = criteriaList.map(c => {
+                const colorClass = isAdd ? 'text-emerald-600 bg-emerald-50/50 hover:bg-emerald-50 hover:border-emerald-300 border-emerald-100/50' : 'text-red-600 bg-red-50/50 hover:bg-red-50 hover:border-red-300 border-red-100/50';
+                const signText = isAdd ? '+' : '-';
+                
                 return `
-                <div class="relative group h-full">
-                    <button onclick="awardPoints(${c.points}, '${escapeInlineJs(c.reason)}')" class="w-full h-full bg-gradient-to-br ${colors.bg} ${colors.hover} border ${colors.border} p-4 md:p-5 rounded-2xl text-center transition-all duration-300 hover:-translate-y-1 ${colors.shadow} shadow-sm flex flex-col items-center justify-center gap-2 overflow-hidden relative">
-                        <div class="text-2xl md:text-3xl font-black ${colors.text} drop-shadow-sm">${prefix}${c.points}</div>
-                        <div class="text-xs md:text-sm font-bold text-slate-700 line-clamp-2 leading-snug px-1">${c.reason}</div>
+                    <button onclick="applyQuickCriterion('${escapeInlineJs(c.reason)}', ${c.points}, '${escapeInlineJs(c.category)}')" class="flex flex-col items-start p-3.5 rounded-xl border transition-all text-left group w-full h-full ${colorClass}">
+                        <div class="font-bold text-slate-700 text-sm mb-1 group-hover:text-slate-900 line-clamp-2 leading-snug">${c.reason}</div>
+                        <div class="mt-auto font-black text-sm">${signText}${c.points}đ</div>
                     </button>
-                    <button onclick="deleteCriterion('${isPositive ? 'positive' : 'negative'}', ${i})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 shadow-md hover:bg-red-600 transition-all z-20"><i class="ph-bold ph-x text-xs"></i></button>
-                </div>`;
-            };
+                `;
+            }).join('');
 
-            const positiveCriteriaHtml = (state.criteria?.positive || []).map((c, i) => renderCriteriaBtn(c, i, true)).join('');
-            const negativeCriteriaHtml = (state.criteria?.negative || []).map((c, i) => renderCriteriaBtn(c, i, false)).join('');
+            // Category options
+            const categories = ["Học tập", "Phong trào", "Thành tích", "Ý thức", "Trách nhiệm", "Kỷ luật", "Chuyên cần", "Nề nếp", "Tác phong", "Vệ sinh", "Giao thông", "Khác"];
+            const categoryOptionsHtml = categories.map(cat => `<option value="${cat}" ${pf.category === cat ? 'selected' : ''}>${cat}</option>`).join('');
+
+            // Calculate final display string for the button
+            let finalPointsStr = `${sign}${pf.pointsVal > 0 ? pf.pointsVal : 0}đ`;
+            let canSubmit = false;
+            
+            if (pf.pointsVal > 0 && pf.reason.trim() !== '') {
+                if (pf.targetType === 'class') canSubmit = true;
+                else if (pf.selectedTargetId) canSubmit = true;
+            }
 
             return `
-                <div class="max-w-7xl mx-auto space-y-6 animate-fade-in relative pb-12">
+                <div class="max-w-2xl mx-auto space-y-6 animate-fade-in pb-20 pt-4">
                     <canvas id="confetti-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-50"></canvas>
                     
-                    <div class="bg-white rounded-[2rem] p-8 md:p-10 shadow-sm border border-slate-200 relative overflow-hidden mb-6">
-                        <div class="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl -mr-32 -mt-32 z-0"></div>
-                        ${progressHtml}
-                    </div>
+                    <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden flex flex-col">
+                        <!-- Header -->
+                        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-5 flex items-center justify-between">
+                            <h2 class="text-white font-black text-lg tracking-wide flex items-center gap-2">
+                                <i class="ph-bold ph-plus-circle"></i> Công Cụ Cộng Điểm Thi Đua
+                            </h2>
+                            <button onclick="switchTab('tong-quan')" class="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
+                                <i class="ph-bold ph-x"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="p-6 md:p-8 flex flex-col gap-6">
+                            <!-- Hành Động: Cộng / Trừ -->
+                            <div class="flex rounded-xl p-1 bg-slate-100 border border-slate-200/60 shadow-inner">
+                                <button onclick="updatePointsForm('actionType', 'add')" class="flex-1 py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-sm transition-all ${actionBtnClass(isAdd, true)}">
+                                    <i class="ph-bold ph-plus-circle text-lg"></i> <span class="font-bold tracking-wide">Cộng Điểm Khen Thưởng</span>
+                                </button>
+                                <button onclick="updatePointsForm('actionType', 'subtract')" class="flex-1 py-3 px-4 rounded-lg flex items-center justify-center gap-2 text-sm transition-all ${actionBtnClass(!isAdd, false)}">
+                                    <i class="ph-bold ph-minus-circle text-lg"></i> <span class="tracking-wide">Trừ Điểm Kỷ Luật</span>
+                                </button>
+                            </div>
 
-                    <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                        <div class="xl:col-span-4 flex flex-col gap-6">
-                            <div class="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200 flex-1 flex flex-col">
-                                <h3 class="font-black text-slate-800 text-lg flex items-center gap-3 mb-6"><div class="p-2 bg-blue-100 text-blueAccent rounded-xl"><i class="ph-fill ph-user-list text-xl"></i></div> Chọn học sinh</h3>
-                                <div class="relative flex-1 flex flex-col">
-                                    <select onchange="selectStudentForPoints(parseInt(this.value))" class="w-full px-5 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl text-base font-bold text-slate-800 focus:outline-none focus:border-blueAccent focus:ring-4 focus:ring-blue-100 transition-all appearance-none cursor-pointer shadow-inner">
-                                        <option value="">-- Bấm vào đây để chọn --</option>
-                                        ${state.students.map(s => `<option value="${s.id}" ${s.id === selectedStudentId ? 'selected' : ''}>${s.name} - ${s.group} (${s.points}đ)</option>`).join('')}
-                                    </select>
-                                    <i class="ph-bold ph-caret-down absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xl"></i>
+                            <!-- Đối Tượng Áp Dụng -->
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Đối Tượng Áp Dụng:</label>
+                                <div class="flex gap-2">
+                                    <button onclick="updatePointsForm('targetType', 'student'); updatePointsForm('selectedTargetId', '');" class="flex-1 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 ${targetBtnClass(pf.targetType === 'student')}">
+                                        <i class="ph-fill ph-user text-lg"></i> Học Sinh
+                                    </button>
+                                    <button onclick="updatePointsForm('targetType', 'group'); updatePointsForm('selectedTargetId', '');" class="flex-1 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 ${targetBtnClass(pf.targetType === 'group')}">
+                                        <i class="ph-fill ph-users text-lg"></i> Nhóm
+                                    </button>
+                                    <button onclick="updatePointsForm('targetType', 'class'); updatePointsForm('selectedTargetId', 'class');" class="flex-1 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 ${targetBtnClass(pf.targetType === 'class')}">
+                                        <i class="ph-fill ph-users-three text-lg"></i> Cả Lớp
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Area chọn đối tượng cụ thể -->
+                            ${targetSelectHtml}
+
+                            <!-- Chọn Mẫu Nhanh -->
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Chọn Mẫu Nhanh:</label>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[160px] overflow-y-auto custom-scrollbar pr-2 py-1 relative">
+                                    ${criteriaHtml}
+                                </div>
+                            </div>
+
+                            <!-- Chi tiết điểm -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Số Điểm Thay Đổi:</label>
+                                    <div class="relative">
+                                        <div class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-lg ${isAdd ? 'text-emerald-600' : 'text-red-500'}">${sign}</div>
+                                        <input type="number" id="pf-points-val" value="${pf.pointsVal || ''}" min="0" oninput="updatePointsForm('pointsVal', Math.abs(parseInt(this.value)||0))" class="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-xl text-base font-black text-slate-800 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 shadow-sm transition-all">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Phân Loại Thi Đua:</label>
+                                    <div class="relative">
+                                        <select onchange="updatePointsForm('category', this.value)" class="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 shadow-sm transition-all appearance-none">
+                                            ${categoryOptionsHtml}
+                                        </select>
+                                        <i class="ph-bold ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-base"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Lý do & Ghi chú -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Lý Do / Nội Dung Thay Đổi Điểm <span class="text-red-500">*</span></label>
+                                    <input type="text" id="pf-reason" value="${escapeHtmlAttr(pf.reason)}" oninput="updatePointsForm('reason', this.value)" placeholder="Vd: Đóng góp phong trào" class="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 shadow-sm transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Ghi Chú Bổ Sung (Không bắt buộc):</label>
+                                    <input type="text" value="${escapeHtmlAttr(pf.note)}" oninput="updatePointsForm('note', this.value)" placeholder="Nhập ghi chú thêm cho phụ huynh hoặc học sinh..." class="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 shadow-sm transition-all italic">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Người Thực Hiện:</label>
+                                    <input type="text" readonly value="${escapeHtmlAttr(state.admin.role || state.admin.name)}" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-purple-700 outline-none cursor-not-allowed shadow-inner">
                                 </div>
                             </div>
                         </div>
 
-                        <div class="xl:col-span-8">
-                            <div class="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200 transition-all duration-300 h-full relative ${!student ? 'opacity-60 pointer-events-none' : ''}">
-                                ${!student ? '<div class="absolute inset-0 z-50 bg-white/50 backdrop-blur-[2px] rounded-[2rem]"></div>' : ''}
-                                
-                                <h3 class="font-black text-slate-800 text-lg flex items-center gap-3 mb-6"><div class="p-2 bg-emerald-100 text-emerald-600 rounded-xl"><i class="ph-fill ph-plus-circle text-xl"></i></div> Tích cực</h3>
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">${positiveCriteriaHtml}</div>
-
-                                <h3 class="font-black text-slate-800 text-lg flex items-center gap-3 mb-6 pt-6 border-t border-slate-100"><div class="p-2 bg-red-100 text-red-500 rounded-xl"><i class="ph-fill ph-minus-circle text-xl"></i></div> Nhắc nhở</h3>
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">${negativeCriteriaHtml}</div>
-
-                                <div class="bg-slate-50 rounded-2xl p-5 border border-slate-200 flex flex-col sm:flex-row gap-4 items-center mt-6">
-                                    <div class="w-full sm:w-32 relative">
-                                        <input type="number" id="custom-points-val" placeholder="Số điểm" class="w-full pl-9 pr-4 py-3.5 bg-white border border-slate-300 rounded-xl text-base font-bold focus:outline-none focus:border-blueAccent focus:ring-2 focus:ring-blue-100 shadow-sm transition-all">
-                                        <i class="ph-bold ph-hash absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
-                                    </div>
-                                    <div class="flex-1 w-full relative">
-                                        <input type="text" id="custom-points-reason" placeholder="Lý do tùy chỉnh..." class="w-full pl-10 pr-4 py-3.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:border-blueAccent focus:ring-2 focus:ring-blue-100 shadow-sm transition-all">
-                                        <i class="ph-bold ph-pencil-simple text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 text-lg"></i>
-                                    </div>
-                                    <div class="flex gap-2 w-full sm:w-auto">
-                                        <button onclick="awardCustomPoints()" class="flex-1 sm:flex-none px-6 py-3.5 bg-primary text-white font-bold rounded-xl hover:bg-secondary shadow-md transition-colors">Áp dụng</button>
-                                        <button onclick="saveNewCriterion()" class="px-4 py-3.5 bg-blue-50 text-blue-700 border border-blue-200 font-bold rounded-xl hover:bg-blue-100 shadow-sm transition-colors" title="Lưu làm tiêu chí mới"><i class="ph-bold ph-floppy-disk text-xl"></i></button>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Footer Actions -->
+                        <div class="p-6 bg-slate-50 border-t border-slate-200 flex justify-end gap-4 rounded-b-[2rem]">
+                            <button onclick="resetPointsForm()" class="px-6 py-3.5 bg-white border border-slate-300 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition-colors text-sm shadow-sm">Khôi Phục</button>
+                            <button onclick="executePointsSubmission()" class="px-8 py-3.5 font-black rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm hover:-translate-y-0.5 ${canSubmit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-70'}" ${!canSubmit ? 'disabled' : ''}>
+                                Xác Nhận & Kiểm Tra <span class="bg-white/20 px-2 py-0.5 rounded ml-1">${finalPointsStr}</span>
+                            </button>
                         </div>
                     </div>
                 </div>
             `;
         }
 
-        function selectStudentForPoints(id) { state.selectedStudentForPoints = id; renderLayout(); }
+        // --- Helper functions for the new Points Form ---
+        window.updatePointsForm = function(key, value) {
+            state.pointsForm[key] = value;
+            
+            // If changing action type, reset quick selection related fields
+            if (key === 'actionType') {
+                state.pointsForm.pointsVal = 0;
+                state.pointsForm.reason = '';
+            }
+            renderLayout();
+            
+            // Re-focus specific inputs if needed to not lose cursor
+            if(key === 'pointsVal' || key === 'reason' || key === 'note') {
+               const el = document.getElementById(key === 'pointsVal' ? 'pf-points-val' : (key === 'reason' ? 'pf-reason' : 'pf-note'));
+               if(el) { el.focus(); setTimeout(()=>el.selectionStart = el.selectionEnd = el.value.length, 0); }
+            }
+        };
+
+        window.applyQuickCriterion = function(reason, points, category) {
+            state.pointsForm.reason = reason;
+            state.pointsForm.pointsVal = points;
+            state.pointsForm.category = category || 'Khác';
+            renderLayout();
+        };
+
+        window.resetPointsForm = function() {
+            state.pointsForm = {
+                actionType: 'add', targetType: 'student', selectedTargetId: '', pointsVal: 0, category: 'Học tập', reason: '', note: ''
+            };
+            renderLayout();
+        };
+
+        window.executePointsSubmission = function() {
+            const pf = state.pointsForm;
+            const pointsToApply = pf.actionType === 'add' ? parseInt(pf.pointsVal) : -parseInt(pf.pointsVal);
+            
+            if (isNaN(pointsToApply) || pointsToApply === 0) return showToast("Số điểm không hợp lệ!", "error");
+            if (!pf.reason.trim()) return showToast("Vui lòng nhập lý do!", "error");
+
+            let targetStudents = [];
+            let successMsg = "";
+
+            if (pf.targetType === 'student') {
+                const s = state.students.find(x => x.id.toString() === pf.selectedTargetId.toString());
+                if (!s) return showToast("Vui lòng chọn học sinh!", "error");
+                targetStudents.push(s);
+                successMsg = `Đã ${pf.actionType === 'add' ? 'cộng' : 'trừ'} ${Math.abs(pointsToApply)} điểm cho ${s.name}`;
+            } 
+            else if (pf.targetType === 'group') {
+                targetStudents = state.students.filter(x => x.group === pf.selectedTargetId);
+                if (targetStudents.length === 0) return showToast(`Nhóm ${pf.selectedTargetId} chưa có học sinh!`, "error");
+                successMsg = `Đã ${pf.actionType === 'add' ? 'cộng' : 'trừ'} ${Math.abs(pointsToApply)} điểm cho Tổ ${pf.selectedTargetId}`;
+            } 
+            else if (pf.targetType === 'class') {
+                targetStudents = [...state.students];
+                if (targetStudents.length === 0) return showToast("Lớp chưa có học sinh!", "error");
+                successMsg = `Đã ${pf.actionType === 'add' ? 'cộng' : 'trừ'} ${Math.abs(pointsToApply)} điểm cho Toàn Lớp`;
+            }
+
+            // Apply points and log history
+            const historyEntry = {
+                id: Date.now(),
+                date: new Date().toISOString(),
+                points: pointsToApply,
+                reason: pf.reason.trim() + (pf.note ? ` (${pf.note.trim()})` : '') + ` [${pf.category}]`
+            };
+
+            targetStudents.forEach(s => {
+                s.points = Math.max(0, (s.points || 0) + pointsToApply);
+                s.stars = Math.max(0, (s.stars || 0) + pointsToApply);
+                if (!s.history) s.history = [];
+                s.history.push({...historyEntry, id: Date.now() + Math.random()}); // Ensure unique IDs if bulk
+            });
+
+            saveData();
+            
+            // Reset form partly for continuous use
+            state.pointsForm.pointsVal = 0;
+            state.pointsForm.reason = '';
+            state.pointsForm.note = '';
+            
+            renderLayout();
+            showToast(successMsg, pointsToApply > 0 ? "success" : "error");
+            if (pointsToApply > 0) triggerConfetti();
+        };
+
+        // Select student for points via other views
+        function selectStudentForPoints(id) { 
+            state.selectedStudentForPoints = id; 
+            state.pointsForm.targetType = 'student';
+            state.pointsForm.selectedTargetId = id.toString();
+            renderLayout(); 
+        }
+
         function selectStudentForRewards(id) { state.selectedStudentForRewards = id; renderLayout(); }
 
+        // Keeping these two logic functions just in case they are referenced somewhere else historically
         function awardPoints(points, reason) {
-            if (!state.selectedStudentForPoints) return;
-            const studentIndex = state.students.findIndex(s => s.id === state.selectedStudentForPoints);
-            if (studentIndex > -1) {
-                const s = state.students[studentIndex];
-                s.points = Math.max(0, (s.points || 0) + points);
-                s.stars = Math.max(0, (s.stars || 0) + points);
-                
-                // Ghi lại lịch sử
-                if (!s.history) s.history = [];
-                s.history.push({
-                    id: Date.now(),
-                    date: new Date().toISOString(),
-                    points: points,
-                    reason: reason || (points > 0 ? 'Cộng điểm tùy chỉnh' : 'Trừ điểm tùy chỉnh')
-                });
-
-                saveData(); renderLayout();
-                showToast(points > 0 ? `Đã cộng ${points} điểm cho ${s.name}` : `Đã trừ ${Math.abs(points)} điểm của ${s.name}`, points > 0 ? "success" : "error");
-                if (points > 0) triggerConfetti();
-            }
+            console.log('Legacy awardPoints called, routing to form...', points, reason);
         }
-        
         function awardCustomPoints() {
-            const val = parseInt(document.getElementById('custom-points-val').value);
-            const reason = document.getElementById('custom-points-reason').value || 'Tùy chỉnh';
-            if (isNaN(val)) return showToast("Vui lòng nhập số điểm!", "error");
-            awardPoints(val, reason); document.getElementById('custom-points-val').value = ''; document.getElementById('custom-points-reason').value = '';
+            console.log('Legacy custom points called');
         }
-        
         function saveNewCriterion() {
-            const val = parseInt(document.getElementById('custom-points-val').value);
-            const reason = document.getElementById('custom-points-reason').value.trim();
-            if (isNaN(val) || val === 0) return showToast("Vui lòng nhập số điểm hợp lệ!", "error");
+            const val = state.pointsForm.pointsVal;
+            const reason = state.pointsForm.reason.trim();
+            const category = state.pointsForm.category;
+            
+            if (isNaN(val) || val <= 0) return showToast("Vui lòng nhập số điểm > 0 để lưu mẫu!", "error");
             if (!reason) return showToast("Vui lòng nhập lý do tiêu chí!", "error");
-            if (val > 0) state.criteria.positive.push({ points: val, reason: reason }); else state.criteria.negative.push({ points: val, reason: reason });
+            
+            if (state.pointsForm.actionType === 'add') {
+                state.criteria.positive.push({ points: val, reason: reason, category: category });
+            } else {
+                state.criteria.negative.push({ points: val, reason: reason, category: category });
+            }
             saveData(); renderLayout(); showToast("Đã lưu tiêu chí mới thành công!");
         }
         
@@ -940,6 +1289,11 @@
             renderLayout(); 
         };
 
+        window.switchSettingsTab = function(tab) {
+            state.settingsTab = tab;
+            renderLayout();
+        };
+
         function renderViewDiemDanh() {
             if (!state.attendanceRecords) state.attendanceRecords = {};
             if (!state.attendanceTab) state.attendanceTab = 'diem-danh';
@@ -971,27 +1325,29 @@
                     });
 
                     const historyHtml = (lateDates.length > 0 || excusedDates.length > 0 || unexcusedDates.length > 0) ? `
-                        <div class="mt-4 flex flex-col gap-2 text-xs font-medium text-slate-500 pl-16 w-full bg-slate-50 py-3 px-4 rounded-xl border border-dashed border-slate-200">
-                            <div class="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1">Lịch sử vi phạm chuyên cần</div>
-                            ${lateDates.length > 0 ? `<div class="flex items-start gap-3"><span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded border border-yellow-200 font-bold w-[75px] text-center text-[10px]">Đi muộn</span> <span class="flex-1 leading-relaxed">${lateDates.join(', ')}</span></div>` : ''}
-                            ${excusedDates.length > 0 ? `<div class="flex items-start gap-3"><span class="bg-blue-100 text-blue-700 px-2 py-1 rounded border border-blue-200 font-bold w-[75px] text-center text-[10px]">Vắng (P)</span> <span class="flex-1 leading-relaxed">${excusedDates.join(', ')}</span></div>` : ''}
-                            ${unexcusedDates.length > 0 ? `<div class="flex items-start gap-3"><span class="bg-red-100 text-red-700 px-2 py-1 rounded border border-red-200 font-bold w-[75px] text-center text-[10px]">Vắng (KP)</span> <span class="flex-1 leading-relaxed">${unexcusedDates.join(', ')}</span></div>` : ''}
+                        <div class="mt-4 flex flex-col gap-2 text-xs font-medium pl-[76px] w-full">
+                            <div class="border border-dashed border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                                <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Lịch sử vi phạm chuyên cần</div>
+                                ${lateDates.length > 0 ? `<div class="flex items-center gap-3"><span class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-md font-bold text-[11px]">Đi muộn</span> <span class="text-slate-600 font-semibold">${lateDates.join(', ')}</span></div>` : ''}
+                                ${excusedDates.length > 0 ? `<div class="flex items-center gap-3 mt-1"><span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-md font-bold text-[11px]">Vắng (P)</span> <span class="text-slate-600 font-semibold">${excusedDates.join(', ')}</span></div>` : ''}
+                                ${unexcusedDates.length > 0 ? `<div class="flex items-center gap-3 mt-1"><span class="bg-red-100 text-red-700 px-3 py-1 rounded-md font-bold text-[11px]">Vắng (KP)</span> <span class="text-slate-600 font-semibold">${unexcusedDates.join(', ')}</span></div>` : ''}
+                            </div>
                         </div>
                     ` : '';
 
                     return `
-                        <div class="flex flex-col xl:flex-row xl:items-center py-6 border-b border-slate-100 hover:bg-slate-50/80 transition-colors px-6 md:px-8 gap-6 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}">
-                            <div class="w-full xl:w-2/5 flex flex-col">
+                        <div class="flex flex-col xl:flex-row py-6 border-b border-slate-100 hover:bg-slate-50/80 transition-colors px-6 md:px-8 gap-6 bg-white items-start">
+                            <div class="w-full xl:w-[45%] flex flex-col">
                                 <div class="flex items-center gap-5 group">
-                                    ${getAvatarImg(s.avatarUrl, s.name, "w-14 h-14 shadow-sm ring-2 ring-slate-200")}
+                                    ${getAvatarImg(s.avatarUrl, s.name, "w-14 h-14 shadow-sm ring-2 ring-slate-100")}
                                     <div class="flex-1 min-w-0">
-                                        <div class="font-black text-base text-slate-800 mb-1">${s.name}</div>
-                                        <div class="text-[10px] text-slate-500 font-bold uppercase bg-slate-200 px-2.5 py-1 rounded-md inline-block">${s.group}</div>
+                                        <div class="font-black text-lg text-slate-800 mb-1">${s.name}</div>
+                                        <div class="text-[10px] text-slate-500 font-bold uppercase bg-slate-100 px-2.5 py-1 rounded-md inline-block border border-slate-200">${s.group}</div>
                                     </div>
                                 </div>
                                 ${historyHtml}
                             </div>
-                            <div class="w-full xl:w-3/5 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                            <div class="w-full xl:w-[55%] flex items-center gap-3 flex-wrap sm:flex-nowrap xl:mt-2">
                                 <div class="w-[calc(50%-0.375rem)] sm:w-auto flex-1">${renderButton('present', 'Có mặt', 'emerald')}</div>
                                 <div class="w-[calc(50%-0.375rem)] sm:w-auto flex-1">${renderButton('late', 'Đi muộn', 'yellow')}</div>
                                 <div class="w-[calc(50%-0.375rem)] sm:w-auto flex-1">${renderButton('excused', 'Vắng (P)', 'blue')}</div>
@@ -1104,51 +1460,50 @@
         function changeAttendanceDate(d) { if(d) { currentAttendanceDate = d; renderLayout(); } }
 
         let wheelRotation = 0, isSpinning = false, wheelItems = [], wheelMode = 'student';
-        const wheelColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#ec4899'];
+        const wheelColors = ['#ff4d4f', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#3b82f6', '#8b5cf6', '#d946ef', '#f43f5e'];
         
         function renderViewVongQuay() {
             return `
                 <div class="max-w-7xl mx-auto animate-fade-in flex flex-col items-center pt-6 relative pb-12">
                     <canvas id="confetti-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-50"></canvas>
                     <div class="flex flex-col md:flex-row items-center justify-between w-full max-w-5xl mb-12 gap-6 relative">
-                        <div>
-                            <h2 class="text-3xl md:text-4xl font-black text-slate-800 flex items-center gap-3 uppercase tracking-tight"><div class="p-2 bg-purple-100 rounded-xl"><i class="ph-fill ph-magic-wand text-purple-600"></i></div> VÒNG QUAY MAY MẮN</h2>
-                            <p class="text-slate-500 text-sm font-medium mt-2">Chọn ngẫu nhiên học sinh hoặc tổ để phát biểu/thưởng</p>
+                        <div class="flex items-center gap-3">
+                            <i class="ph-fill ph-magic-wand text-3xl text-yellow-400 drop-shadow-md"></i>
+                            <h2 class="text-3xl md:text-4xl font-black text-slate-800 uppercase tracking-tight">VÒNG QUAY GỌI TÊN</h2>
                         </div>
-                        <div class="flex bg-white rounded-2xl shadow-sm border border-slate-200 p-1.5 h-max">
-                            <button onclick="wheelMode='student'; renderLayout();" class="px-6 py-3 rounded-xl text-sm font-bold transition-all ${wheelMode === 'student' ? 'bg-blue-50 text-blueAccent shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Học sinh</button>
-                            <button onclick="wheelMode='group'; renderLayout();" class="px-6 py-3 rounded-xl text-sm font-bold transition-all ${wheelMode === 'group' ? 'bg-blue-50 text-blueAccent shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Tổ</button>
+                        <div class="flex bg-white rounded-full shadow-sm border border-slate-200 p-1">
+                            <button onclick="wheelMode='student'; renderLayout();" class="px-6 py-2.5 rounded-full text-sm font-bold transition-all ${wheelMode === 'student' ? 'bg-blue-50 text-blueAccent shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Học sinh</button>
+                            <button onclick="wheelMode='group'; renderLayout();" class="px-6 py-2.5 rounded-full text-sm font-bold transition-all ${wheelMode === 'group' ? 'bg-blue-50 text-blueAccent shadow-sm' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}">Nhóm</button>
                         </div>
                     </div>
                     
-                    <div class="flex flex-col xl:flex-row items-center justify-center gap-12 xl:gap-20 w-full max-w-6xl">
+                    <div class="flex flex-col xl:flex-row items-center justify-center gap-16 xl:gap-24 w-full max-w-6xl">
                         <div class="relative flex flex-col items-center group">
-                            <!-- Wheel Pointer -->
-                            <div class="absolute -top-6 z-20 w-0 h-0 border-l-[24px] border-l-transparent border-r-[24px] border-r-transparent border-t-[40px] border-t-slate-800 drop-shadow-xl filter pb-2"></div>
+                            <!-- Wheel Pointer (Red Triangle) -->
+                            <div class="absolute -top-4 z-20 w-0 h-0 border-l-[18px] border-l-transparent border-r-[18px] border-r-transparent border-t-[32px] border-t-red-500 drop-shadow-md filter"></div>
                             
                             <!-- Wheel Container -->
-                            <div class="w-[320px] h-[320px] md:w-[450px] md:h-[450px] rounded-full border-[16px] border-white shadow-[0_20px_50px_rgba(0,0,0,0.15)] relative overflow-hidden bg-slate-100 ring-8 ring-slate-200/50">
-                                <div class="absolute inset-0 rounded-full border-4 border-black/10 z-10 pointer-events-none"></div>
-                                <canvas id="wheelCanvas" width="418" height="418" class="w-full h-full origin-center"></canvas>
+                            <div class="w-[340px] h-[340px] md:w-[460px] md:h-[460px] rounded-full shadow-[0_15px_40px_rgba(0,0,0,0.1)] relative overflow-hidden bg-white ring-8 ring-white z-10">
+                                <canvas id="wheelCanvas" width="460" height="460" class="w-full h-full origin-center"></canvas>
                                 <!-- Center Dot -->
-                                <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-lg border-4 border-slate-200 z-10 flex items-center justify-center">
-                                    <div class="w-4 h-4 bg-slate-800 rounded-full"></div>
+                                <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[70px] h-[70px] bg-white rounded-full shadow-lg border-[12px] border-white z-20 flex items-center justify-center">
+                                    <div class="w-full h-full bg-amber-400 rounded-full"></div>
                                 </div>
                             </div>
                             
-                            <button onclick="spinWheel()" class="mt-12 px-12 py-5 bg-gradient-to-b from-accent to-orange-600 text-white font-black text-xl md:text-2xl rounded-full shadow-[0_10px_0_#b45309,0_15px_20px_rgba(0,0,0,0.2)] active:shadow-[0_0px_0_#b45309,0_0px_0px_rgba(0,0,0,0)] active:translate-y-[10px] transition-all flex items-center gap-3 tracking-wide border-2 border-white/20"><i class="ph-fill ph-play text-3xl"></i> QUAY NGAY</button>
+                            <!-- Spin Button -->
+                            <button onclick="spinWheel()" class="mt-12 px-12 py-4 bg-gradient-to-b from-[#ffcc00] to-[#f59e0b] text-slate-900 font-black text-xl rounded-full shadow-[0_8px_0_#d97706,0_15px_20px_rgba(0,0,0,0.15)] active:shadow-[0_0px_0_#d97706,0_0px_0px_rgba(0,0,0,0)] active:translate-y-[8px] transition-all flex items-center justify-center gap-3 tracking-wider w-64 uppercase border border-amber-300">
+                                <i class="ph-fill ph-play text-2xl"></i> QUAY NGAY
+                            </button>
                         </div>
                         
-                        <div class="bg-white rounded-[2rem] p-10 shadow-xl border border-slate-200 w-full max-w-md min-h-[450px] flex flex-col items-center justify-center text-center relative overflow-hidden">
-                            <div class="absolute top-0 right-0 w-40 h-40 bg-slate-50 rounded-bl-full -mr-10 -mt-10 z-0"></div>
-                            <div class="text-[11px] text-slate-400 font-bold uppercase tracking-widest absolute top-8 left-8 z-10">KẾT QUẢ QUAY</div>
+                        <!-- Result Card -->
+                        <div class="bg-white rounded-[2.5rem] p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] w-full max-w-lg min-h-[460px] flex flex-col items-center justify-center text-center relative overflow-hidden border border-slate-100">
+                            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest absolute top-10 w-full text-center">KẾT QUẢ VÒNG QUAY</div>
                             
-                            <div id="wheel-result-content" class="relative z-10 w-full flex flex-col items-center justify-center">
-                                <div class="w-32 h-32 rounded-full bg-slate-50 border-4 border-slate-100 flex items-center justify-center mb-6 shadow-inner">
-                                    <i class="ph-bold ph-arrows-clockwise text-6xl text-slate-300 animate-spin-slow"></i>
-                                </div>
-                                <div class="text-2xl font-bold text-slate-400">Đang chờ...</div>
-                                <p class="text-sm text-slate-400 mt-4 font-medium">Bấm "Quay Ngay" để tìm người may mắn</p>
+                            <div id="wheel-result-content" class="relative z-10 w-full flex flex-col items-center justify-center mt-6">
+                                <i class="ph-bold ph-arrows-clockwise text-6xl text-slate-200 animate-spin-slow mb-4"></i>
+                                <div class="text-2xl font-black text-slate-400 tracking-tight">Đang chờ...</div>
                             </div>
                         </div>
                     </div>
@@ -1162,7 +1517,7 @@
             if (wheelItems.length === 0) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#94a3b8'; ctx.font = "600 20px Montserrat"; ctx.textAlign = "center";
+                ctx.fillStyle = '#94a3b8'; ctx.font = "600 20px 'Inter', sans-serif"; ctx.textAlign = "center";
                 ctx.fillText("Chưa có dữ liệu", canvas.width/2, canvas.height/2);
                 return;
             }
@@ -1176,17 +1531,22 @@
                 ctx.beginPath(); 
                 ctx.fillStyle = wheelColors[i % wheelColors.length];
                 ctx.moveTo(0, 0); ctx.arc(0, 0, r, i*arc, (i+1)*arc); ctx.fill(); 
-                ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.stroke();
                 
                 // Draw Text
                 ctx.save(); 
+                // Rotate to the center of the slice
                 ctx.rotate(i*arc + arc/2); 
                 ctx.textAlign = "right"; ctx.textBaseline = "middle";
-                ctx.fillStyle = "#fff"; 
-                ctx.font = "900 18px Montserrat"; 
-                ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 8;
-                const text = item.name.length > 15 ? item.name.substring(0,12)+'...' : item.name;
-                ctx.fillText(text, r - 30, 0); 
+                ctx.fillStyle = "#ffffff"; 
+                // Use a bold, highly legible font
+                ctx.font = "900 16px 'Inter', sans-serif"; 
+                
+                // Ensure text does not overlap with the center dot
+                const text = item.name.length > 20 ? item.name.substring(0,18)+'...' : item.name;
+                // Add slight shadow for better contrast
+                ctx.shadowColor = "rgba(0,0,0,0.15)"; ctx.shadowBlur = 4; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
+                ctx.fillText(text, r - 25, 0); 
                 ctx.restore();
             }); 
             ctx.restore();
@@ -1220,21 +1580,20 @@
             
             let actionBtnHtml = '';
             if (wheelMode === 'student') {
-                actionBtnHtml = `<button onclick="state.selectedStudentForPoints=${w.id}; switchTab('tich-diem');" class="mt-8 px-8 py-3.5 bg-emerald-500 text-white font-black rounded-xl shadow-lg hover:bg-emerald-600 hover:-translate-y-1 transition-all w-full text-lg uppercase tracking-wide">Khen thưởng ngay</button>`;
+                actionBtnHtml = `<button onclick="state.selectedStudentForPoints=${w.id}; switchTab('tich-diem');" class="mt-8 px-10 py-4 bg-gradient-to-r from-emerald-400 to-emerald-600 text-white font-black rounded-2xl shadow-xl hover:shadow-emerald-500/30 hover:-translate-y-1 transition-all w-max mx-auto text-base uppercase tracking-wider flex items-center justify-center gap-2"><i class="ph-fill ph-star text-xl"></i> Khen thưởng ngay</button>`;
             }
 
             document.getElementById('wheel-result-content').innerHTML = `
                 <div class="animate-[popIn_0.5s_cubic-bezier(0.16,1,0.3,1)_forwards] flex flex-col items-center w-full">
-                    ${getAvatarImg(w.avatarUrl, w.name, 'w-40 h-40 mx-auto mb-6 border-[6px] border-accent shadow-2xl bg-white')}
-                    <div class="text-[11px] font-bold text-accent uppercase tracking-widest mb-2">${wheelMode === 'student' ? 'HỌC SINH MAY MẮN' : 'TỔ MAY MẮN'}</div>
-                    <div class="text-3xl md:text-4xl font-black text-slate-800 tracking-tight leading-tight px-4">${w.name}</div>
-                    ${w.group ? `<div class="text-sm font-bold text-slate-500 uppercase mt-3 bg-slate-100 px-4 py-1.5 rounded-lg border border-slate-200">${w.group}</div>` : ''}
+                    <div class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">KẾT QUẢ VÒNG QUAY</div>
+                    <div class="text-3xl md:text-5xl font-black text-slate-800 tracking-tight leading-tight px-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-700">${w.name}</div>
+                    ${w.group ? `<div class="text-sm font-bold text-indigo-500 uppercase mt-4 bg-indigo-50 px-5 py-2 rounded-xl border border-indigo-100">${w.group}</div>` : ''}
                     ${actionBtnHtml}
                 </div>`;
             triggerConfetti();
         }
 
-        function switchRankingTab(tab) { rankingTab = tab; renderLayout(); }
+        window.switchRankingTab = function(tab) { rankingTab = tab; renderLayout(); }
 
         function renderViewXepHang() {
             const sortedStudents = [...state.students].sort((a,b) => (b.points || 0) - (a.points || 0));
@@ -1365,7 +1724,7 @@
             `;
         }
 
-        function switchReportTab(tab) { state.reportTab = tab; renderLayout(); }
+        window.switchReportTab = function(tab) { state.reportTab = tab; renderLayout(); }
         
         function saveStudentComment(id, value) { 
             const s = state.students.find(x => x.id === id); 
@@ -1379,30 +1738,44 @@
             const sortedStudents = [...state.students].sort((a,b) => b.points - a.points);
             const currentReportTab = state.reportTab || 'chi-tiet';
 
+            // Calculate attendance
+            let present = 0, absent = 0, late = 0, excused = 0, unexcused = 0;
+            const d = new Date();
+            const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const formattedDate = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const todayRecord = state.attendanceRecords[todayStr] || {};
+            
+            state.students.forEach(s => {
+                const status = todayRecord[s.id];
+                if (status === 'present') present++;
+                else if (status === 'late') late++;
+                else if (status === 'excused') { absent++; excused++; }
+                else if (status === 'unexcused') { absent++; unexcused++; }
+            });
+
             const tableRowsHtml = sortedStudents.map((s, index) => `
-                <div class="grid grid-cols-12 gap-4 py-4 border-b border-slate-100 items-center hover:bg-blue-50/50 transition-colors text-sm font-semibold text-slate-700">
-                    <div class="col-span-1 pl-6 text-slate-400">${index + 1}</div>
-                    <div class="col-span-4 font-bold text-slate-800 flex items-center gap-3">${getAvatarImg(s.avatarUrl, s.name, 'w-8 h-8 rounded-full')} ${s.name}</div>
-                    <div class="col-span-3"><span class="bg-slate-100 px-3 py-1 rounded-lg text-xs border border-slate-200">${s.group}</span></div>
-                    <div class="col-span-2 font-black text-blueAccent text-base">${s.points || 0}</div>
-                    <div class="col-span-2 font-bold text-orange-500 flex items-center gap-1">${s.stars || 0} <i class="ph-fill ph-star"></i></div>
+                <div class="grid grid-cols-12 gap-4 py-4 border-b border-slate-100 hover:bg-slate-50 transition-colors items-center">
+                    <div class="col-span-1 pl-6 font-bold text-slate-400">${index + 1}</div>
+                    <div class="col-span-4 flex items-center gap-3">
+                        ${getAvatarImg(s.avatarUrl, s.name, "w-8 h-8 ring-1 ring-slate-200")}
+                        <div class="font-bold text-slate-800">${s.name}</div>
+                    </div>
+                    <div class="col-span-3">
+                        <span class="text-[10px] font-bold uppercase tracking-widest bg-slate-100 px-2 py-1 rounded border border-slate-200 text-slate-500">${s.group}</span>
+                    </div>
+                    <div class="col-span-2 font-black text-blueAccent">${s.points || 0}</div>
+                    <div class="col-span-2 font-black text-orange-500 flex items-center gap-1">${s.stars || 0} <i class="ph-fill ph-star"></i></div>
                 </div>
             `).join('');
 
             const commentsHtml = sortedStudents.map((s, index) => `
-                <div class="bg-white p-6 rounded-[1.5rem] border border-slate-200 shadow-sm mb-4 flex flex-col md:flex-row gap-5 items-start break-inside-avoid">
-                    <div class="flex items-center gap-4 w-full md:w-72 flex-shrink-0 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <div class="w-8 font-black text-center text-slate-300 text-lg">${index + 1}</div>
-                        ${getAvatarImg(s.avatarUrl, s.name, "w-12 h-12")}
-                        <div>
-                            <div class="font-bold text-slate-800 text-base">${s.name}</div>
-                            <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">${s.group} • ${s.points} đ</div>
-                        </div>
-                    </div>
-                    <div class="flex-1 w-full relative group">
-                        <div class="absolute top-3 left-3 text-slate-300 pointer-events-none group-focus-within:text-blueAccent transition-colors"><i class="ph-fill ph-quotes text-xl"></i></div>
-                        <textarea onchange="saveStudentComment(${s.id}, this.value)" placeholder="Nhập nhận xét của giáo viên về học sinh này trong tháng..." class="w-full pl-10 pr-4 py-4 bg-slate-50 hover:bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:border-blueAccent focus:ring-4 focus:ring-blue-100 transition-all resize-y min-h-[100px] print:hidden">${escapeHtmlAttr(s.comment || '')}</textarea>
-                        <div class="hidden print:block text-sm text-slate-800 font-medium leading-relaxed pl-6 italic border-l-2 border-slate-300">${s.comment ? escapeHtmlAttr(s.comment).replace(/\n/g, '<br>') : 'Chưa có nhận xét.'}</div>
+                <div class="flex gap-4 p-5 border-b border-slate-100 hover:bg-slate-50 transition-colors items-start">
+                    <div class="font-bold text-slate-400 w-6 text-right">${index + 1}</div>
+                    ${getAvatarImg(s.avatarUrl, s.name, "w-10 h-10")}
+                    <div class="flex-1">
+                        <div class="font-bold text-slate-800 mb-1">${s.name}</div>
+                        <textarea onchange="saveStudentComment(${s.id}, this.value)" class="w-full text-sm p-3 border border-slate-200 rounded-xl focus:border-blueAccent outline-none resize-none bg-slate-50 focus:bg-white transition-colors print:hidden" rows="2" placeholder="Nhập nhận xét...">${s.comment || ''}</textarea>
+                        <div class="hidden print:block text-sm text-slate-800 font-medium leading-relaxed pl-6 italic border-l-2 border-slate-300 mt-2">${s.comment ? escapeHtmlAttr(s.comment).replace(/\n/g, '<br>') : 'Chưa có nhận xét.'}</div>
                     </div>
                 </div>
             `).join('');
@@ -1410,51 +1783,159 @@
             let tabContentHtml = '';
             if (currentReportTab === 'chi-tiet') {
                 tabContentHtml = `
-                    <div class="min-w-full overflow-x-auto">
+                    <div class="min-w-full overflow-x-auto mt-4">
                         <div class="grid grid-cols-12 gap-4 py-4 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 rounded-t-2xl">
                             <div class="col-span-1 pl-6">STT</div><div class="col-span-4">HỌ VÀ TÊN</div><div class="col-span-3">TỔ THI ĐUA</div><div class="col-span-2">TỔNG ĐIỂM</div><div class="col-span-2">SAO CÒN LẠI</div>
                         </div>
                         <div class="flex flex-col bg-white rounded-b-2xl">${tableRowsHtml || '<div class="py-16 text-center text-slate-400 font-medium">Chưa có dữ liệu học sinh.</div>'}</div>
                     </div>
                 `;
+            } else if (currentReportTab === 'diem-thang') {
+                // Thu thập tất cả các tháng có dữ liệu lịch sử
+                const allMonthsSet = new Set();
+                state.students.forEach(s => {
+                    if (s.history) {
+                        s.history.forEach(h => {
+                            if (h.date) {
+                                const dateObj = new Date(h.date);
+                                const monthYear = `${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`;
+                                allMonthsSet.add(monthYear);
+                            }
+                        });
+                    }
+                });
+
+                // Nếu không có dữ liệu, tạo một vài tháng mặc định (tháng hiện tại và 2 tháng trước)
+                if (allMonthsSet.size === 0) {
+                    const today = new Date();
+                    for (let i = 0; i < 3; i++) {
+                        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                        allMonthsSet.add(`${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
+                    }
+                }
+
+                // Sắp xếp các tháng theo thứ tự thời gian
+                const sortedMonths = Array.from(allMonthsSet).sort((a, b) => {
+                    const [monthA, yearA] = a.split('/').map(Number);
+                    const [monthB, yearB] = b.split('/').map(Number);
+                    if (yearA !== yearB) return yearA - yearB;
+                    return monthA - monthB;
+                });
+
+                // Tạo tiêu đề cột cho các tháng
+                const monthHeadersHtml = sortedMonths.map(month => `
+                    <th colspan="2" class="p-3 text-center border-b border-r border-slate-200 bg-slate-50 font-black text-slate-800 text-sm whitespace-nowrap">${month}</th>
+                `).join('');
+
+                const subHeadersHtml = sortedMonths.map(() => `
+                    <th class="p-2 text-center border-b border-r border-slate-200 bg-slate-50/50 text-slate-400 font-bold text-xs w-14">+</th>
+                    <th class="p-2 text-center border-b border-r border-slate-200 bg-slate-50/50 text-slate-400 font-bold text-xs w-14">-</th>
+                `).join('');
+
+                // Tính toán và tạo dữ liệu hàng cho từng học sinh
+                const monthlyDataRowsHtml = sortedStudents.map((s, index) => {
+                    const monthlyPoints = {};
+                    sortedMonths.forEach(m => monthlyPoints[m] = { plus: 0, minus: 0 });
+
+                    if (s.history) {
+                        s.history.forEach(h => {
+                            if (h.date && h.points) {
+                                const dateObj = new Date(h.date);
+                                const monthYear = `${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`;
+                                if (monthlyPoints[monthYear]) {
+                                    if (h.points > 0) monthlyPoints[monthYear].plus += h.points;
+                                    else monthlyPoints[monthYear].minus += Math.abs(h.points);
+                                }
+                            }
+                        });
+                    }
+
+                    const cellsHtml = sortedMonths.map(m => {
+                        const plusVal = monthlyPoints[m].plus;
+                        const minusVal = monthlyPoints[m].minus;
+                        return `
+                            <td class="p-3 text-center border-b border-r border-slate-100 font-bold text-emerald-600 bg-emerald-50/30">${plusVal > 0 ? '+' + plusVal : '<span class="text-slate-200 font-normal">-</span>'}</td>
+                            <td class="p-3 text-center border-b border-r border-slate-100 font-bold text-red-500 bg-red-50/30">${minusVal > 0 ? '-' + minusVal : '<span class="text-slate-200 font-normal">-</span>'}</td>
+                        `;
+                    }).join('');
+
+                    return `
+                        <tr class="hover:bg-slate-50/80 transition-colors">
+                            <td class="p-3 text-center border-b border-r border-slate-100 text-slate-400 font-bold">${index + 1}</td>
+                            <td class="p-3 border-b border-r border-slate-100 font-bold text-slate-800 whitespace-nowrap flex items-center gap-2">
+                                ${getAvatarImg(s.avatarUrl, s.name, 'w-6 h-6')} ${s.name}
+                            </td>
+                            ${cellsHtml}
+                        </tr>
+                    `;
+                }).join('');
+
+                tabContentHtml = `
+                    <div class="mt-6 overflow-x-auto custom-scrollbar border border-slate-200 rounded-2xl shadow-sm">
+                        <table class="w-full text-sm text-left border-collapse min-w-max">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" class="p-3 text-center border-b border-r border-slate-200 bg-slate-50 font-bold text-slate-500 uppercase tracking-widest text-[10px] w-16">STT</th>
+                                    <th rowspan="2" class="p-3 border-b border-r border-slate-200 bg-slate-50 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Tên Học Sinh</th>
+                                    ${monthHeadersHtml}
+                                </tr>
+                                <tr>
+                                    ${subHeadersHtml}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${monthlyDataRowsHtml || '<tr><td colspan="100%" class="p-8 text-center text-slate-400 font-medium">Chưa có dữ liệu học sinh.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
             } else {
-                tabContentHtml = `<div class="flex flex-col mt-4">${commentsHtml || '<div class="py-16 text-center text-slate-400 font-medium bg-white rounded-3xl border border-slate-200">Chưa có dữ liệu học sinh.</div>'}</div>`;
+                tabContentHtml = `<div class="flex flex-col mt-4 border border-slate-200 rounded-2xl overflow-hidden">${commentsHtml || '<div class="py-16 text-center text-slate-400 font-medium bg-white">Chưa có dữ liệu học sinh.</div>'}</div>`;
             }
 
             return `
                 <div class="max-w-7xl mx-auto animate-fade-in pb-12" id="report-container">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-slate-200 pb-6 mb-8 gap-4">
+                    <!-- Header Section -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 pb-8 mb-4 gap-4">
                         <div>
-                            <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3"><i class="ph-fill ph-chart-line-up text-indigo-500"></i> Báo Cáo Sổ Theo Dõi</h2>
-                            <p class="text-slate-500 text-sm font-medium mt-1">Tổng hợp dữ liệu thi đua và đánh giá học sinh</p>
+                            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Báo Cáo Tổng Hợp</h2>
+                            <p class="text-slate-500 text-sm font-medium mt-1">Thống kê chi tiết tình hình lớp học</p>
                         </div>
-                        <button onclick="window.print()" class="px-6 py-3.5 bg-primary text-white font-bold rounded-xl shadow-md hover:bg-secondary flex items-center justify-center gap-2 text-sm print:hidden transition-all hover:-translate-y-0.5"><i class="ph-bold ph-printer text-lg"></i> In Báo Cáo (PDF)</button>
+                        <button onclick="window.print()" class="px-6 py-3.5 bg-[#0f172a] hover:bg-black text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 text-sm print:hidden transition-all"><i class="ph-bold ph-printer text-lg"></i> In Báo Cáo</button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 flex items-center gap-5 relative overflow-hidden group">
-                            <div class="absolute -right-4 -top-4 opacity-5 group-hover:scale-150 transition-transform duration-500"><i class="ph-fill ph-users text-8xl"></i></div>
-                            <div class="w-16 h-16 bg-blue-50 text-blueAccent rounded-2xl flex items-center justify-center"><i class="ph-fill ph-users text-3xl"></i></div>
-                            <div><div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">TỔNG SĨ SỐ</div><div class="text-4xl font-black text-slate-800">${totalStudents}</div></div>
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-center h-32">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">TỔNG HỌC SINH</div>
+                            <div class="text-4xl md:text-5xl font-black text-slate-900 leading-none">${totalStudents}</div>
                         </div>
-                        <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 flex items-center gap-5 relative overflow-hidden group">
-                            <div class="absolute -right-4 -top-4 opacity-5 group-hover:scale-150 transition-transform duration-500"><i class="ph-fill ph-star text-8xl"></i></div>
-                            <div class="w-16 h-16 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center"><i class="ph-fill ph-star text-3xl"></i></div>
-                            <div><div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">TỔNG ĐIỂM LỚP</div><div class="text-4xl font-black text-orange-600">${totalPoints}</div></div>
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-center h-32">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">TỔNG ĐIỂM THƯỞNG</div>
+                            <div class="text-4xl md:text-5xl font-black text-blue-500 leading-none">${totalPoints}</div>
                         </div>
-                        <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 flex items-center gap-5 relative overflow-hidden group">
-                            <div class="absolute -right-4 -top-4 opacity-5 group-hover:scale-150 transition-transform duration-500"><i class="ph-fill ph-chart-bar text-8xl"></i></div>
-                            <div class="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center"><i class="ph-fill ph-chart-bar text-3xl"></i></div>
-                            <div><div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ĐIỂM TRUNG BÌNH</div><div class="text-4xl font-black text-emerald-600">${avgPoints}</div></div>
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-center h-32">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">ĐIỂM TRUNG BÌNH</div>
+                            <div class="text-4xl md:text-5xl font-black text-emerald-500 leading-none">${avgPoints}</div>
+                        </div>
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-center h-32">
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">ĐIỂM DANH (${formattedDate})</div>
+                            <div class="text-[13px] font-bold text-slate-600">
+                                Có mặt: <span class="text-emerald-500">${present}</span> | Vắng: <span class="text-red-500">${absent}</span> | Muộn: <span class="text-yellow-500">${late}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-[2rem] p-2 shadow-sm border border-slate-200">
-                        <div class="p-6 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <h3 class="text-lg font-black text-slate-800 print:hidden uppercase tracking-wide">Chi Tiết Báo Cáo</h3>
-                            <div class="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 print:hidden w-full sm:w-auto">
-                                <button onclick="switchReportTab('chi-tiet')" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${currentReportTab === 'chi-tiet' ? 'bg-white text-blueAccent shadow-sm' : 'text-slate-500 hover:text-slate-800'}"><i class="ph-fill ph-list-numbers mr-1"></i> Bảng Điểm</button>
-                                <button onclick="switchReportTab('nhan-xet')" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${currentReportTab === 'nhan-xet' ? 'bg-white text-blueAccent shadow-sm' : 'text-slate-500 hover:text-slate-800'}"><i class="ph-fill ph-chat-centered-text mr-1"></i> Nhận Xét</button>
+                    <!-- Main Content Area -->
+                    <div class="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-100">
+                        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                            <h3 class="text-xl font-black text-slate-900 tracking-tight uppercase">Chi Tiết Báo Cáo</h3>
+                            
+                            <!-- Tab Switch (Pill design) -->
+                            <div class="flex bg-slate-100 p-1.5 rounded-xl print:hidden w-full xl:w-auto overflow-x-auto custom-scrollbar flex-shrink-0">
+                                <button onclick="switchReportTab('chi-tiet')" class="flex-1 sm:flex-none whitespace-nowrap px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${currentReportTab === 'chi-tiet' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"><i class="ph-fill ph-list-numbers mr-1"></i> Bảng Điểm</button>
+                                <button onclick="switchReportTab('diem-thang')" class="flex-1 sm:flex-none whitespace-nowrap px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${currentReportTab === 'diem-thang' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"><i class="ph-bold ph-calendar mr-1"></i> Điểm Theo Tháng</button>
+                                <button onclick="switchReportTab('nhan-xet')" class="flex-1 sm:flex-none whitespace-nowrap px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${currentReportTab === 'nhan-xet' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"><i class="ph-fill ph-chat-centered-text mr-1"></i> Nhận Xét</button>
                             </div>
                         </div>
                         ${tabContentHtml}
@@ -1464,77 +1945,179 @@
         }
 
         function renderViewCaiDat() {
+            if (!state.settingsTab) state.settingsTab = 'thong-tin';
+
+            const tabButtons = [
+                { id: 'thong-tin', label: 'Thông tin chung', icon: 'ph-identification-badge' },
+                { id: 'qua-tang', label: 'Danh mục Quà tặng', icon: 'ph-gift' },
+                { id: 'du-lieu', label: 'Dữ liệu & Đồng bộ', icon: 'ph-cloud-arrow-down' },
+                { id: 'nguy-hiem', label: 'Vùng nguy hiểm', icon: 'ph-warning-octagon' }
+            ].map(tab => {
+                const isActive = state.settingsTab === tab.id;
+                return `<button onclick="switchSettingsTab('${tab.id}')" class="px-6 py-3 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isActive ? 'bg-[#1e1b4b] text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-800'}"><i class="ph-fill ${tab.icon} text-lg"></i> ${tab.label}</button>`;
+            }).join('');
+
+            let contentHtml = '';
+            if (state.settingsTab === 'thong-tin') {
+                contentHtml = `
+                    <div class="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col md:flex-row gap-8 items-start">
+                        <div class="w-full md:w-1/3 text-center">
+                            <div class="relative cursor-pointer group inline-block mb-4" onclick="document.getElementById('admin-avatar-upload').click()">
+                                <div id="edit-admin-avatar-preview" class="transition-opacity group-hover:opacity-80">
+                                    ${getAvatarImg(state.admin.avatarUrl, state.admin.name, "w-32 h-32 ring-4 ring-white shadow-xl mx-auto")}
+                                </div>
+                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div class="bg-black/60 rounded-full p-4 shadow-lg text-white"><i class="ph-fill ph-camera text-2xl"></i></div>
+                                </div>
+                            </div>
+                            <input type="file" id="admin-avatar-upload" class="hidden" accept="image/*" onchange="handleAdminAvatarUpload(event)">
+                            <input type="hidden" id="edit-admin-avatar-val" value="${escapeHtmlAttr(state.admin.avatarUrl || '')}">
+                            <div class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ảnh đại diện</div>
+                        </div>
+                        <div class="w-full md:w-2/3 space-y-6">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Tên Lớp</label>
+                                <input type="text" id="setting-classname" value="${escapeHtmlAttr(state.admin.className)}" class="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl font-black text-slate-800 text-lg outline-none focus:border-blueAccent shadow-sm transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Giáo viên chủ nhiệm</label>
+                                <input type="text" id="setting-gvcn" value="${escapeHtmlAttr(state.admin.name)}" class="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 outline-none focus:border-blueAccent shadow-sm transition-colors">
+                            </div>
+                            <button onclick="saveSettings()" class="w-full py-4 bg-primary text-white font-black rounded-xl hover:bg-secondary shadow-lg hover:-translate-y-0.5 transition-all">LƯU CÀI ĐẶT</button>
+                        </div>
+                    </div>
+                `;
+            } else if (state.settingsTab === 'qua-tang') {
+                contentHtml = `
+                    <div class="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-100">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2"><i class="ph-fill ph-gift text-accent"></i> Danh mục quà tặng</h3>
+                                <p class="text-sm text-slate-500 font-medium mt-1">Cấu hình các món quà học sinh có thể đổi bằng Sao</p>
+                            </div>
+                            <button onclick="openEditRewardModal(null)" class="px-5 py-2.5 bg-blue-50 text-blueAccent font-bold rounded-xl shadow-sm hover:bg-blue-100 flex items-center gap-2 text-sm transition-colors"><i class="ph-bold ph-plus"></i> Thêm Quà Mới</button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${state.rewards.map(r => `
+                                <div class="p-5 border border-slate-200 rounded-2xl flex items-center gap-4 bg-slate-50/50 hover:bg-slate-50 transition-colors group">
+                                    <div class="w-14 h-14 ${r.bg} ${r.color} rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-white"><i class="ph-fill ${r.icon}"></i></div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-bold text-slate-800 text-sm truncate">${r.name}</div>
+                                        <div class="text-xs font-black text-orange-500 flex items-center gap-1">${r.cost} <i class="ph-fill ph-star"></i></div>
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        <button onclick="openEditRewardModal('${r.id}')" class="text-slate-400 hover:text-blueAccent transition-colors"><i class="ph-fill ph-pencil-simple text-lg"></i></button>
+                                        <button onclick="deleteReward('${r.id}')" class="text-slate-400 hover:text-red-500 transition-colors"><i class="ph-fill ph-trash text-lg"></i></button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else if (state.settingsTab === 'du-lieu') {
+                contentHtml = `
+                    <div class="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-100">
+                        <h3 class="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"><i class="ph-fill ph-cloud-arrow-down text-blueAccent"></i> Lưu trữ và Phục hồi</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="p-6 bg-slate-50 border border-slate-200 rounded-2xl">
+                                <h4 class="font-bold text-slate-800 mb-2">Sao lưu dữ liệu</h4>
+                                <p class="text-sm text-slate-500 mb-6">Tải toàn bộ dữ liệu lớp học hiện tại xuống máy tính để đề phòng mất mát.</p>
+                                <button onclick="exportData()" class="w-full py-3.5 bg-blueAccent text-white font-bold rounded-xl shadow-md hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-download-simple text-lg"></i> TẢI XUỐNG BẢN SAO LƯU</button>
+                            </div>
+                            <div class="p-6 bg-slate-50 border border-slate-200 rounded-2xl">
+                                <h4 class="font-bold text-slate-800 mb-2">Phục hồi dữ liệu</h4>
+                                <p class="text-sm text-slate-500 mb-6">Khôi phục dữ liệu từ file sao lưu đã tải xuống trước đó.</p>
+                                <div class="relative w-full">
+                                    <input type="file" id="import-data-file" accept=".json" class="hidden" onchange="importData(event)">
+                                    <button onclick="document.getElementById('import-data-file').click()" class="w-full py-3.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-100 transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-upload-simple text-lg"></i> CHỌN FILE PHỤC HỒI</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (state.settingsTab === 'nguy-hiem') {
+                contentHtml = `
+                    <div class="bg-red-50 rounded-[2rem] p-6 md:p-8 shadow-sm border border-red-100">
+                        <h3 class="text-xl font-black text-red-600 mb-2 flex items-center gap-2"><i class="ph-fill ph-warning-octagon"></i> Vùng Nguy Hiểm</h3>
+                        <p class="text-sm text-red-500/80 mb-8 font-medium">Các thao tác dưới đây không thể hoàn tác. Hãy cẩn thận!</p>
+                        
+                        <div class="space-y-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white border border-red-200 rounded-2xl">
+                                <div>
+                                    <div class="font-bold text-slate-800">Đặt lại điểm thi đua</div>
+                                    <div class="text-xs text-slate-500 mt-1">Xóa số điểm hiện tại của một học sinh, tổ hoặc toàn lớp về 0.</div>
+                                </div>
+                                <button onclick="openResetPointsModal()" class="w-full sm:w-auto px-6 py-3 bg-orange-50 text-orange-600 font-bold rounded-xl hover:bg-orange-100 transition-colors shadow-sm whitespace-nowrap border border-orange-100">ĐẶT LẠI ĐIỂM</button>
+                            </div>
+                            
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white border border-red-200 rounded-2xl">
+                                <div>
+                                    <div class="font-bold text-red-600">Xóa sạch toàn bộ dữ liệu</div>
+                                    <div class="text-xs text-red-400 mt-1">Xóa tất cả học sinh, điểm số, lịch sử, cài đặt. Không thể khôi phục!</div>
+                                </div>
+                                <button onclick="openWipeDataModal()" class="w-full sm:w-auto px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors shadow-md whitespace-nowrap">XÓA DỮ LIỆU</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             return `
-                <div class="max-w-4xl mx-auto space-y-8 py-4 animate-fade-in pb-12">
-                    <div class="flex items-center gap-4 border-b border-slate-200 pb-6">
-                        <div class="w-12 h-12 bg-slate-800 text-white rounded-2xl flex items-center justify-center"><i class="ph-fill ph-gear text-2xl"></i></div>
-                        <div><h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Cài đặt hệ thống</h2><p class="text-slate-500 text-sm font-medium">Quản lý các thông số chung của lớp học</p></div>
+                <div class="max-w-4xl mx-auto animate-fade-in pb-12 pt-4">
+                    <div class="flex items-center gap-3 mb-8 px-2">
+                        <i class="ph-fill ph-gear text-4xl text-slate-400"></i>
+                        <div>
+                            <h2 class="text-3xl font-black text-slate-800 tracking-tight">Cài Đặt Hệ Thống</h2>
+                            <p class="text-slate-500 text-sm font-medium mt-1">Quản lý các thông số và cấu hình của lớp học</p>
+                        </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
-                        <div class="md:col-span-4 space-y-4 text-sm font-bold text-slate-500">
-                            <a href="#section-info" class="block p-3 hover:text-blueAccent hover:bg-blue-50 rounded-xl transition-colors">Thông tin Lớp học</a>
-                            <a href="#section-rewards" class="block p-3 hover:text-blueAccent hover:bg-blue-50 rounded-xl transition-colors">Quản lý Quà tặng</a>
-                            <a href="#section-danger" class="block p-3 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors">Vùng nguy hiểm</a>
-                        </div>
-                        
-                        <div class="md:col-span-8 space-y-8">
-                            <!-- Section Info -->
-                            <div id="section-info" class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
-                                <h3 class="text-lg font-black text-slate-800 mb-6 flex items-center gap-2"><i class="ph-fill ph-info text-blueAccent"></i> Thông tin chung</h3>
-                                <div class="space-y-5">
-                                    <div><label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Tên lớp hiển thị</label><input type="text" id="setting-classname" value="${escapeHtmlAttr(state.admin.className || '')}" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blueAccent focus:ring-4 focus:ring-blue-100 font-bold transition-all"></div>
-                                    <div><label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Tên GVCN / Quản trị viên</label><input type="text" id="setting-gvcn" value="${escapeHtmlAttr(state.admin.name || '')}" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blueAccent focus:ring-4 focus:ring-blue-100 font-bold transition-all"></div>
-                                </div>
-                                <div class="mt-8 pt-6 border-t border-slate-100 flex justify-end">
-                                    <button onclick="saveSettings()" class="px-8 py-3.5 bg-primary hover:bg-secondary text-white font-bold rounded-xl shadow-md transition-all hover:-translate-y-0.5">Lưu thay đổi</button>
-                                </div>
-                            </div>
+                    <div class="flex flex-wrap gap-3 mb-6 mt-4">
+                        ${tabButtons}
+                    </div>
 
-                            <!-- Section Rewards -->
-                            <div id="section-rewards" class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
-                                <div class="flex justify-between items-center mb-6">
-                                    <h3 class="text-lg font-black text-slate-800 flex items-center gap-2"><i class="ph-fill ph-gift text-pink-500"></i> Danh mục Quà tặng</h3>
-                                    <button onclick="openEditRewardModal(null)" class="text-xs bg-primary hover:bg-secondary text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1 shadow-sm transition-colors"><i class="ph-bold ph-plus"></i> Thêm món</button>
-                                </div>
-                                <div class="space-y-3">
-                                    ${state.rewards.map(r => `
-                                        <div class="flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-200 rounded-2xl group transition-all hover:shadow-md">
-                                            <div class="flex items-center gap-4">
-                                                <div class="w-12 h-12 ${r.bg} rounded-xl flex items-center justify-center border border-white shadow-sm"><i class="ph-fill ${r.icon} text-2xl ${r.color}"></i></div>
-                                                <div><div class="font-bold text-sm text-slate-800">${r.name}</div><div class="text-[10px] text-slate-500 font-medium max-w-[200px] truncate mt-0.5">${r.desc || ''}</div></div>
-                                            </div>
-                                            <div class="flex items-center gap-5">
-                                                <div class="font-black text-orange-500 flex items-center gap-1.5 text-lg bg-orange-50 px-3 py-1 rounded-lg">${r.cost} <i class="ph-fill ph-star text-accent"></i></div>
-                                                <div class="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onclick="openEditRewardModal('${r.id}')" class="p-2 text-slate-400 hover:text-blueAccent hover:bg-blue-50 bg-white rounded-lg shadow-sm border border-slate-100 transition-colors"><i class="ph-fill ph-pencil-simple text-base"></i></button>
-                                                    <button onclick="deleteReward('${r.id}')" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 bg-white rounded-lg shadow-sm border border-slate-100 transition-colors"><i class="ph-fill ph-trash text-base"></i></button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-
-                            <!-- Section Danger -->
-                            <div id="section-danger" class="bg-red-50/50 p-8 rounded-[2rem] border border-red-200">
-                                <h3 class="text-lg font-black text-red-600 mb-6 flex items-center gap-2"><i class="ph-fill ph-warning text-red-500"></i> Vùng nguy hiểm</h3>
-                                <div class="space-y-4">
-                                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 bg-white border border-red-100 rounded-2xl gap-4">
-                                        <div><div class="font-bold text-slate-800 text-sm">Đặt lại điểm số</div><div class="text-xs text-slate-500 mt-1">Xóa điểm tích lũy của học sinh hoặc nhóm.</div></div>
-                                        <button onclick="openResetPointsModal()" class="px-5 py-2.5 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold rounded-xl text-xs whitespace-nowrap transition-colors">Thực hiện...</button>
-                                    </div>
-                                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 bg-white border border-red-200 rounded-2xl gap-4">
-                                        <div><div class="font-bold text-red-700 text-sm">Xóa toàn bộ dữ liệu</div><div class="text-xs text-slate-500 mt-1">Xóa sạch học sinh, nhóm, điểm danh. Không thể hoàn tác.</div></div>
-                                        <button onclick="openWipeDataModal()" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs whitespace-nowrap shadow-md transition-colors">Xóa sạch...</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="mt-4">
+                        ${contentHtml}
                     </div>
                 </div>
             `;
         }
+
+        window.exportData = function() {
+            const dataStr = JSON.stringify(state, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = `ChuyenTauThanhXuan_Backup_${getTodayString()}.json`;
+
+            let linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            showToast("Đã tải xuống bản sao lưu!", "success");
+        };
+
+        window.importData = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedState = JSON.parse(e.target.result);
+                    if (confirm("Cảnh báo: Dữ liệu hiện tại sẽ bị ghi đè hoàn toàn bởi dữ liệu từ file phục hồi. Bạn có chắc chắn muốn tiếp tục?")) {
+                        state = { ...state, ...importedState };
+                        applyStateDefaults();
+                        saveData();
+                        renderLayout();
+                        showToast("Đã phục hồi dữ liệu thành công!", "success");
+                    }
+                } catch (error) {
+                    showToast("File không hợp lệ hoặc bị lỗi!", "error");
+                }
+            };
+            reader.readAsText(file);
+            // Reset input so the same file can be selected again if needed
+            event.target.value = '';
+        };
 
         function saveSettings() { state.admin.className = document.getElementById('setting-classname').value; state.admin.name = document.getElementById('setting-gvcn').value; saveData(); renderLayout(); showToast("Đã lưu thông tin cài đặt", "success"); }
 
@@ -1598,84 +2181,108 @@
 
         function openEditStudentModal(id) {
             state.editingStudentId = id;
-            const s = id ? state.students.find(x => x.id === id) : { name: '', role: '', goal: '', talent: '', group: 'Tổ 1', avatarUrl: '', gender: 'Nam' };
+            const s = id ? state.students.find(x => x.id === id) : { name: '', role: '', goal: '', talent: '', group: 'Tổ 1', avatarUrl: '', gender: 'Nữ' };
             if (!s && id) return;
 
-            const roleOptions = ['Lớp trưởng', 'Lớp phó', 'Bí thư', 'Tổ trưởng'].map(role => 
-                `<button onclick="document.getElementById('edit-s-role').value='${role}'" class="px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-600 text-[11px] font-bold rounded-lg transition-colors">+ ${role}</button>`
+            const roleOptions = ['Lớp trưởng', 'Lớp phó học tập', 'Lớp phó phong trào', 'Bí thư', 'Tổ trưởng'].map(role => 
+                `<button onclick="document.getElementById('edit-s-role').value='${role}'" class="px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-600 text-[12px] font-bold rounded-lg transition-colors shadow-sm">+ ${role}</button>`
             ).join('');
-            const goalOptions = ['HS giỏi', 'HS xuất sắc', 'Năng nổ'].map(goal => 
-                `<button onclick="document.getElementById('edit-s-goal').value='${goal}'" class="px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-600 text-[11px] font-bold rounded-lg transition-colors">+ ${goal}</button>`
+            const goalOptions = ['HS xuất sắc', 'HS giỏi', 'HS giỏi nhất trường', 'Tự tin giao tiếp'].map(goal => 
+                `<button onclick="document.getElementById('edit-s-goal').value='${goal}'" class="px-3 py-1.5 bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-100 text-[12px] font-bold rounded-lg transition-colors shadow-sm">+ ${goal}</button>`
+            ).join('');
+            const talentOptions = ['Bóng đá', 'Bóng rổ', 'Bóng chuyền', 'Vẽ', 'Hát', 'Nhảy', 'Biên đạo', 'Múa', 'MC'].map(talent => 
+                `<button onclick="const el = document.getElementById('edit-s-talent'); el.value = el.value ? el.value + ', ${talent}' : '${talent}'" class="px-3 py-1.5 bg-purple-50 border border-purple-100 text-purple-600 hover:bg-purple-100 text-[12px] font-bold rounded-lg transition-colors shadow-sm">+ ${talent}</button>`
             ).join('');
             const groupOptions = state.groups.map(g => `<option value="${g.name}" ${s.group===g.name?'selected':''}>${g.name}</option>`).join('');
 
             const modalHtml = `
                 <div class="fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in" id="edit-student-modal">
-                    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div class="bg-primary text-white p-6 flex justify-between items-center px-8 relative">
-                            <h3 class="font-black text-xl flex items-center gap-2"><i class="ph-fill ph-student text-accent text-2xl"></i> ${id ? 'HỒ SƠ HỌC SINH' : 'THÊM HỌC SINH'}</h3>
-                            <button onclick="closeModal('edit-student-modal')" class="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-colors"><i class="ph-bold ph-x text-lg"></i></button>
+                    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+                        
+                        <!-- Header -->
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center relative bg-white">
+                            <h3 class="font-black text-xl flex items-center gap-3 text-[#0f172a]">
+                                <div class="p-2 bg-yellow-100 text-yellow-600 rounded-lg"><i class="ph-fill ph-identification-card text-xl"></i></div> 
+                                ${id ? 'HỒ SƠ HỌC SINH' : 'THÊM HỌC SINH'}
+                            </h3>
+                            <button onclick="closeModal('edit-student-modal')" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"><i class="ph-bold ph-x"></i></button>
                         </div>
-                        <div class="p-8 flex-1 overflow-y-auto custom-scrollbar flex flex-col md:flex-row gap-8 bg-slate-50">
+
+                        <!-- Body -->
+                        <div class="p-8 flex-1 overflow-y-auto custom-scrollbar flex flex-col md:flex-row gap-10 bg-white">
+                            
+                            <!-- Left Column -->
                             <div class="flex-1 space-y-6">
-                                <div class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">THÔNG TIN CƠ BẢN</div>
-                                <div class="flex items-center gap-5 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                                <div class="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-4">THÔNG TIN CƠ BẢN</div>
+                                
+                                <div class="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                     <div class="relative cursor-pointer group flex-shrink-0" onclick="document.getElementById('edit-student-avatar-upload').click()">
-                                        ${getAvatarImg(s.avatarUrl, s.name || 'A', "w-20 h-20 transition-opacity group-hover:opacity-80 ring-4 ring-slate-100 shadow-md")}
+                                        ${getAvatarImg(s.avatarUrl, s.name || 'A', "w-16 h-16 transition-opacity group-hover:opacity-80 ring-2 ring-white shadow-sm")}
                                         <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <div class="bg-black/60 rounded-full p-2.5 text-white"><i class="ph-bold ph-camera"></i></div>
+                                            <div class="bg-black/60 rounded-full p-2 text-white"><i class="ph-bold ph-camera text-sm"></i></div>
                                         </div>
                                         <input type="file" id="edit-student-avatar-upload" class="hidden" accept="image/*" onchange="handleStudentAvatarUpload(event)">
                                     </div>
                                     <div class="flex-1 min-w-0">
-                                        <label class="block text-xs font-bold text-slate-500 mb-1">Link Ảnh đại diện</label>
-                                        <input type="text" id="edit-s-avatar" value="${escapeHtmlAttr(s.avatarUrl || '')}" placeholder="Hoặc dán URL..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-blueAccent focus:outline-none font-medium truncate" oninput="document.querySelector('#edit-student-modal img').src=this.value || 'https://placehold.co/100x100/e2e8f0/64748b?text=AVT'">
+                                        <label class="block text-sm font-bold text-slate-600 mb-1">Ảnh đại diện</label>
+                                        <input type="text" id="edit-s-avatar" value="${escapeHtmlAttr(s.avatarUrl || '')}" placeholder="Dán link hoặc tải lên..." class="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-blueAccent focus:outline-none font-medium truncate shadow-sm" oninput="document.querySelector('#edit-student-modal img').src=this.value || 'https://placehold.co/100x100/e2e8f0/64748b?text=AVT'">
                                     </div>
                                 </div>
+                                
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Họ và tên <span class="text-red-500">*</span></label>
-                                    <input type="text" id="edit-s-name" value="${escapeHtmlAttr(s.name)}" class="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl text-base font-black text-slate-800 focus:border-blueAccent focus:ring-4 focus:ring-blue-100 outline-none transition-all">
+                                    <label class="block text-sm font-bold text-slate-600 mb-2">Họ và tên <span class="text-red-500">*</span></label>
+                                    <input type="text" id="edit-s-name" value="${escapeHtmlAttr(s.name)}" class="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl text-base font-black text-slate-800 focus:border-blueAccent focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm">
                                 </div>
+                                
                                 <div class="grid grid-cols-2 gap-5">
                                     <div>
-                                        <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Giới tính</label>
-                                        <select id="edit-s-gender" class="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 focus:border-blueAccent cursor-pointer outline-none">
+                                        <label class="block text-sm font-bold text-slate-600 mb-2">Giới tính</label>
+                                        <select id="edit-s-gender" class="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 focus:border-blueAccent cursor-pointer outline-none shadow-sm">
                                             <option value="Nam" ${s.gender==='Nam'?'selected':''}>Nam</option><option value="Nữ" ${s.gender==='Nữ'?'selected':''}>Nữ</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Tổ thi đua</label>
-                                        <select id="edit-s-group" class="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 focus:border-blueAccent cursor-pointer outline-none">
+                                        <label class="block text-sm font-bold text-slate-600 mb-2">Nhóm thi đua</label>
+                                        <select id="edit-s-group" class="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 focus:border-blueAccent cursor-pointer outline-none shadow-sm">
                                             ${groupOptions}
                                         </select>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Right Column -->
                             <div class="flex-1 space-y-6">
-                                <div class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">PHÁT TRIỂN CÁ NHÂN</div>
+                                <div class="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-4">PHÁT TRIỂN CÁ NHÂN</div>
+                                
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Vai trò lớp</label>
-                                    <input type="text" id="edit-s-role" value="${escapeHtmlAttr(s.role || '')}" placeholder="VD: Lớp trưởng..." class="w-full px-5 py-3 bg-white border border-slate-300 rounded-xl text-sm font-bold focus:border-blueAccent outline-none mb-2">
+                                    <label class="block text-sm font-bold text-slate-600 mb-2">Vai trò</label>
+                                    <input type="text" id="edit-s-role" value="${escapeHtmlAttr(s.role || '')}" placeholder="Lớp phó học tập..." class="w-full px-5 py-3 bg-white border border-slate-300 rounded-xl text-sm font-bold focus:border-blueAccent outline-none mb-3 shadow-sm">
                                     <div class="flex flex-wrap gap-2">${roleOptions}</div>
                                 </div>
+                                
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Mục tiêu phấn đấu</label>
-                                    <input type="text" id="edit-s-goal" value="${escapeHtmlAttr(s.goal || '')}" placeholder="Mục tiêu..." class="w-full px-5 py-3 bg-white border border-slate-300 rounded-xl text-sm font-bold focus:border-blueAccent outline-none mb-2">
+                                    <label class="block text-sm font-bold text-slate-600 mb-2 mt-4">Mục tiêu phấn đấu</label>
+                                    <input type="text" id="edit-s-goal" value="${escapeHtmlAttr(s.goal || '')}" placeholder="Học sinh xuất sắc..." class="w-full px-5 py-3 bg-white border border-slate-300 rounded-xl text-sm font-bold focus:border-blueAccent outline-none mb-3 shadow-sm">
                                     <div class="flex flex-wrap gap-2">${goalOptions}</div>
                                 </div>
+
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Mã tra cứu Phụ huynh</label>
-                                    <div class="flex items-center gap-3 bg-purple-50 p-3 rounded-xl border border-purple-200">
-                                        <i class="ph-fill ph-qr-code text-2xl text-purple-600"></i>
-                                        <div class="font-mono text-xl font-black text-purple-800 tracking-widest">${s.code || 'Sẽ tạo tự động'}</div>
-                                    </div>
+                                    <label class="block text-sm font-bold text-slate-600 mb-2 mt-4">Năng khiếu</label>
+                                    <input type="text" id="edit-s-talent" value="${escapeHtmlAttr(s.talent || '')}" placeholder="MC, Hát, Tiếng Anh..." class="w-full px-5 py-3 bg-white border border-slate-300 rounded-xl text-sm font-bold focus:border-blueAccent outline-none mb-3 shadow-sm">
+                                    <div class="flex flex-wrap gap-2">${talentOptions}</div>
                                 </div>
                             </div>
                         </div>
-                        <div class="p-6 bg-white border-t border-slate-200 flex justify-end gap-3 rounded-b-[2rem]">
-                            <button onclick="closeModal('edit-student-modal')" class="px-8 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Hủy</button>
-                            <button onclick="saveStudentEdit()" class="px-10 py-3.5 bg-primary text-white font-black rounded-xl hover:bg-secondary shadow-lg transition-all hover:-translate-y-0.5">LƯU HỒ SƠ</button>
+
+                        <!-- Footer -->
+                        <div class="p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center rounded-b-[2rem]">
+                            ${id ? `<button onclick="deleteStudent(${id}); closeModal('edit-student-modal')" class="px-6 py-3.5 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors flex items-center gap-2 shadow-sm border border-red-100"><i class="ph-bold ph-trash"></i> Xóa</button>` : '<div></div>'}
+                            <div class="flex gap-3">
+                                <button onclick="closeModal('edit-student-modal')" class="px-8 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Hủy</button>
+                                <button onclick="saveStudentEdit()" class="px-10 py-3.5 bg-[#0f172a] text-white font-black rounded-xl hover:bg-black shadow-lg transition-all hover:-translate-y-0.5">Lưu Hồ Sơ</button>
+                            </div>
                         </div>
+
                     </div>
                 </div>
             `;
@@ -1689,6 +2296,7 @@
             const sData = {
                 name: name, gender: document.getElementById('edit-s-gender').value, group: document.getElementById('edit-s-group').value,
                 role: document.getElementById('edit-s-role').value.trim(), goal: document.getElementById('edit-s-goal').value.trim(),
+                talent: document.getElementById('edit-s-talent').value.trim(),
                 avatarUrl: document.getElementById('edit-s-avatar').value.trim()
             };
 
@@ -1766,7 +2374,7 @@
                             
                             <div class="relative py-2"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div><div class="relative flex justify-center"><span class="bg-white px-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest">Hoặc dán văn bản</span></div></div>
                             
-                            <textarea id="import-paste-area" rows="4" placeholder="Nguyễn Văn A    Nam    Tổ 1&#10;Trần Thị B    Nữ    Tổ 2" class="w-full px-5 py-4 border border-slate-300 rounded-2xl text-sm focus:border-blueAccent focus:ring-4 focus:ring-blue-100 outline-none resize-none bg-slate-50 font-medium font-mono"></textarea>
+                            <textarea id="import-paste-area" rows="4" placeholder="Nguyễn Văn A    Nam    Tổ 1\nTrần Thị B    Nữ    Tổ 2" class="w-full px-5 py-4 border border-slate-300 rounded-2xl text-sm focus:border-blueAccent focus:ring-4 focus:ring-blue-100 outline-none resize-none bg-slate-50 font-medium font-mono"></textarea>
                         </div>
                         <button onclick="processPastedData()" class="w-full py-4 bg-primary text-white font-black rounded-xl hover:bg-secondary shadow-lg transition-all hover:-translate-y-0.5">XỬ LÝ DỮ LIỆU</button>
                     </div>
@@ -2458,4 +3066,3 @@
     </script>
 </body>
 </html>
-Đang hiển thị 2aOboQrAKggK5XIwATjGPHRgheby0AnuO2NnnqjY.
